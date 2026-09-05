@@ -8,6 +8,23 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def normalize_database_url(url: str | None) -> str:
+    """Ensure async PostgreSQL URLs carry the asyncpg driver.
+
+    Railway injects ``DATABASE_URL`` as ``postgresql://`` (no driver). Without
+    a driver SQLAlchemy's async engine falls back to the synchronous psycopg2
+    dialect, which is not installed, crashing startup. Rewrite the scheme to
+    ``postgresql+asyncpg://`` when the driver is missing, leaving explicit
+    drivers and non-PostgreSQL URLs (e.g. SQLite tests) untouched.
+    """
+    if not url:
+        return url or ""
+    scheme = url.split("://", 1)[0]
+    if scheme in ("postgresql", "postgres") and "+" not in scheme:
+        return "postgresql+asyncpg://" + url.split("://", 1)[1]
+    return url
+
+
 def _engine_kwargs(url: str) -> dict:
     """Return create_async_engine kwargs appropriate for the database URL.
 
@@ -35,7 +52,7 @@ def build_engine(url: str | None = None, **overrides):
     """
     url = url or settings.DATABASE_URL
     kwargs = {**_engine_kwargs(url), **overrides}
-    return create_async_engine(url, **kwargs)
+    return create_async_engine(normalize_database_url(url), **kwargs)
 
 
 engine = build_engine()

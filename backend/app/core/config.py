@@ -60,6 +60,19 @@ class Settings(BaseSettings):
                     "and set it in your environment."
                 )
             v = secrets.token_hex(32)
+        environment = (info.data.get("ENVIRONMENT") or "development").lower()
+        weak = {s.strip().lower() for s in (
+            "secret", "changeme", "development-secret",
+            "test-secret", "default-secret", "password", "123456",
+        )}
+        if environment == "production" and (
+            v.strip().lower() in weak or len(v) < 32
+        ):
+            raise ValueError(
+                "JWT_SECRET_KEY in production must be a strong secret "
+                "(at least 32 characters and not a placeholder). Generate one "
+                "with `python -c \"import secrets; print(secrets.token_hex(32))\"`."
+            )
         return v
 
     @model_validator(mode="after")

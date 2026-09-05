@@ -55,9 +55,19 @@ async def lifespan(app: FastAPI):
     logger.info("Starting UDYOGSETU API v%s (%s)", settings.APP_VERSION, settings.ENVIRONMENT)
     if settings.AUTO_GENERATED_SECRET:
         logger.warning("JWT_SECRET_KEY is not set; tokens will be invalidated on restart. Set JWT_SECRET_KEY in your environment for stable sessions.")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables ready")
+    if settings.ENVIRONMENT == "production":
+        # Production schema is controlled exclusively by Alembic. The deployment
+        # pipeline runs `alembic upgrade head` as a pre-deploy step (Railway) or
+        # in the container start command (Docker Compose). Never mutate the
+        # schema from application metadata at startup in production.
+        logger.info(
+            "Production startup (%s): schema managed by Alembic; overhead from create_all suppressed",
+            settings.ENVIRONMENT,
+        )
+    else:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables ready (created via metadata in %s mode)", settings.ENVIRONMENT)
     try:
         await _seed_data()
     except Exception:
