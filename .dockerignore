@@ -1,0 +1,31 @@
+# Dependencies
+node_modules
+venv
+__pycache__
+*.pyc
+
+# Build outputs
+.next
+dist
+build
+
+# Environment
+.env
+
+# Git
+.git
+.gitignore
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+backend-build.log
+
+# Data
+data/mock_government_data
+data/sample_documents
+
+# Testing
+coverage

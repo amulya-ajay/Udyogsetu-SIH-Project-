@@ -1,0 +1,70 @@
+"""REST router over the government gateway (mock + adapters) and health."""
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db_session
+from app.api.deps import require_officer
+from app.services.gateway_service import GatewayService
+
+router = APIRouter(prefix="/gateway", tags=["government-gateway"])
+
+
+def _gateway() -> GatewayService:
+    return GatewayService()
+
+
+@router.get("/systems")
+async def list_systems(user: dict = Depends(require_officer)):
+    return {"systems": list(GatewayService().gateway.adapters.keys())}
+
+
+@router.get("/health")
+async def gateway_health(
+    user: dict = Depends(require_officer),
+):
+    """Per-system availability / latency dashboard data."""
+    return await GatewayService().system_health(force=True)
+
+
+@router.get("/{system}/services")
+async def system_services(
+    system: str,
+    user: dict = Depends(require_officer),
+):
+    mock = GatewayService().mock
+    try:
+        return await mock.list_services(system)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/{system}/status/{application_id}")
+async def application_status(
+    system: str,
+    application_id: str,
+    user: dict = Depends(require_officer),
+):
+    return await GatewayService().get_status(system, application_id)
+
+
+@router.post("/{system}/submit")
+async def submit_application(
+    system: str,
+    application_data: dict,
+    user: dict = Depends(require_officer),
+):
+    try:
+        return await GatewayService().submit(system, application_data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/verify/{kind}/{value}")
+async def verify_business(
+    kind: str,
+    value: str,
+    user: dict = Depends(require_officer),
+):
+    """Verify a GSTIN/PAN/Udyam or scheme eligibility against mock registry."""
+    return await GatewayService().verify(kind, value)
