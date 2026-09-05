@@ -212,14 +212,26 @@ This is a known limitation (see §16), not a hidden claim.
 - `.gitignore` — ignore `infrastructure/nginx/certs/*.pem` / `*.csr` / `.srl`, `docker-compose.override.yml`.
 - `scripts/gen-certs.sh` (new) — self-signed TLS cert generator.
 - `backend/alembic/versions/0005_reconcile_orm.py` (new) — legacy-DB repair migration.
+- `frontend/public/.gitkeep` (new) — preserves `public/` in CI checkouts (CI-parity fix for the frontend image build).
 - `infrastructure/nginx/certs/.gitkeep` (new) — tracked placeholder so the certs dir exists.
 - (`docker-compose.override.yml` — created locally, gitignored, not committed.)
 
 ## 18. Git Commit & Push
 
-- Commit: `<FILLED_AT_RUN_TIME>` on `main`.
-- Pushed with `--force-with-lease` (remote `main` matched local before push).
-- CI expected: `backend-tests` (incl. new alembic step), `frontend-tests`, `lint`, `docker-build` green.
+- First commit: `45be90b468ea4ac9b33df62447787499f8f0509e` — CI pipeline/Docker context fix, migration `0005`, cert script, compose, report.
+- Second commit: `1c5e97b91c54b39b72bd6e466fd5fe170580ce4c` — CI-parity fix for the frontend image.
+
+> **CI follow-up (found & fixed while verifying the pipeline):** the first CI run after the
+> context fix showed `docker-build` failing on the *frontend* image only. Root cause: the
+> frontend `COPY --from=builder /app/public ./public` requires a `public/` directory, but git does
+> not track empty directories — the empty `public/` existed only on the local filesystem, so the
+> GitHub Actions checkout lacked it (`COPY` "not found", exit 1). Local builds (even `--no-cache`)
+> masked this only because the empty directory happened to exist on the developer machine. Fixed by
+> committing a tracked `frontend/public/.gitkeep`, then verified with a **git-faithful tree**
+> (`git archive` → separate checkout → identical Docker build) — the same condition CI sees —
+> which succeeds after the fix.
+> Final GitHub Actions run on `1c5e97b9`: `frontend-tests` ✅, `lint` ✅, `backend-tests` ✅,
+> `docker-build` ✅, `deploy-staging` ✅ — **all green**.
 
 ---
 
@@ -272,8 +284,8 @@ Government integrations ................. MOCK (documented)
 - full-role/RBAC/security audit …… 131/131 PASS
 - government API honesty ……………… DOCUMENTED MOCK
 - secret scan …………………………… PASS
-- Git commit ……………………………… see §18
+- Git commit ……………………………… 45be90b4 + 1c5e97b9 (see §18)
 - GitHub push …………………………… SUCCESS
-- GitHub Actions ………………………… expected green post-push
+- GitHub Actions ……………………… ALL GREEN (backend-tests, frontend-tests, lint, docker-build, deploy-staging)
 
 **Overall verdict: 🟢 READY FOR DEPLOYMENT**
