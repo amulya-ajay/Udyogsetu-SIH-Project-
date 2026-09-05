@@ -1,291 +1,339 @@
 # UDYOGSETU — FINAL DEPLOYMENT READINESS REPORT
 
-**Scope:** Repository → Dockerfiles → `.dockerignore` → GitHub Actions → backend image → frontend image → Compose/Deployment → PostgreSQL → Redis → health checks → application.
-**Date:** 2026-09-05
-**Branch:** `main` (remote: `https://github.com/amulya-ajay/Udyogsetu-SIH-Project-`)
-**Overall verdict: 🟢 READY FOR DEPLOYMENT**
+**Repository:** https://github.com/amulya-ajay/Udyogsetu-SIH-Project-
+**Branch:** `main`
+**Audit date:** 2026-09-05
+**Exact Docker context verified:** repo root `.` — locally AND in GitHub Actions
 
 ---
 
 ## 1. Executive Summary
 
-This audit was triggered by a failing GitHub Actions `docker-build` job: the workflow built
-`infrastructure/docker/Dockerfile.backend` and `Dockerfile.frontend` with the `backend`/`frontend`
-directories as the build context, while both Dockerfiles are authored for a **repository-root**
-build context (`COPY backend/...`, `COPY frontend/...`, `COPY data ./data`). This caused CI failures
-(e.g. `COPY failed: /backend/requirements.txt not found`) even though local `docker compose` builds
-already used the correct root context and worked.
+The GitHub Actions `docker-build` job was failing because the workflow invoked
+`docker build -f infrastructure/docker/Dockerfile.backend backend`, using `backend/` as the build
+context while both Dockerfiles are authored for a **repository-root** context
+(`COPY backend/requirements.txt`, `COPY backend/app`, `COPY backend/alembic`, `COPY data ./data`).
+Compose already used the correct root context, so only CI was broken.
 
-The fix, full-stack verification, and a genuine (previously hidden) schema-drift repair are
-documented below. All verifications were executed live against the running local stack.
+The workflow has been corrected to build from the repository root (`.`), identical to the command
+verified locally. The fix is **live on `main`**: the two most recent CI runs (on `1c5e97b9` and
+`6742e799`) are green, and the `docker-build` job in run `33977062218` executed both image builds
+successfully. The failing runs (`ab4b68d`, `45be90b`) predate the fix.
 
-**Result:** both images build with the exact CI commands; the 5-service Compose stack comes up with
-all health checks green; Alembic migrations are verified clean on both a fresh database and the live
-database; a 131/131 live role/RBAC/security audit passes. Everything committed and pushed to `main`;
-CI to be observed post-push.
+**Final verdict: 🟢 READY FOR DEPLOYMENT**
 
----
+## 2. Original Docker Failure
 
-## 2. Docker Build Issue — Root Cause, Fix, Verification
+Pre-fix CI run `ab4b68d` (branches `main`) failed the backend image build with:
 
-### Root cause
-`infrastructure/docker/Dockerfile.backend` and `infrastructure/docker/Dockerfile.frontend` use
-**Option A (repo-root context)**:
-
-- `Dockerfile.backend`: `COPY backend/requirements.txt`, `COPY backend/alembic.ini`, `COPY backend/alembic`, `COPY backend/app`, `COPY data ./data`
-- `Dockerfile.frontend`: `COPY frontend/package*.json`, `COPY frontend .`, standalone Next.js copy
-
-The GitHub Actions job built them with `backend`/`frontend` as the build context:
-
-```
-docker build -t udyogsetu-backend  -f infrastructure/docker/Dockerfile.backend  backend
-docker build -t udyogsetu-frontend -f infrastructure/docker/Dockerfile.frontend frontend
+```text
+"/backend/requirements.txt": not found
+"/backend/app": not found
+"/backend/alembic": not found
+"/backend/alembic.ini": not found
+"/data": not found
 ```
 
-With a `backend` context, `COPY backend/requirements.txt` resolves to
-`backend/backend/requirements.txt` (does not exist) → CI failure. `docker-compose.yml` already used
-`context: .`, which is why compose builds succeeded.
+Tracing cause: the workflow command `docker build -t udyogsetu-backend -f
+infrastructure/docker/Dockerfile.backend backend` set the build context to `backend/`, so every
+`COPY backend/...` and `COPY data ...` resolved against `backend/backend/...` and `backend/data`
+— none of which exist. A subsequent run (`45be90b`) additionally failed on the frontend image
+because the empty `frontend/public/` directory was untracked in git and thus absent from the CI
+checkout (`COPY --from=builder /app/public` → "not found").
 
-### Fix (`backend`/`frontend` context → `.`)
-`.github/workflows/ci.yml`, `docker-build` job:
+## 3. Root Cause
 
+1. **Context/architecture mismatch (primary):** CI used `backend`/`frontend` as build contexts;
+   the Dockerfiles require the repository root. This single mistake produced all five
+   `COPY ... not found` errors.
+2. **Untracked empty directory (secondary, frontend):** `frontend/public/` existed only on the
+   developer filesystem; git does not track empty directories, so the Actions checkout lacked it.
+3. Evidence the failure was CI-only: `docker-compose.yml` already built with `context: .` and the
+   local images built successfully before this audit.
+
+## 4. Docker Build Context Analysis
+
+Actual repository structure (verified with `git ls-tree` / filesystem):
+
+```text
+UDYOGSETU/
+├── backend/            requirements.txt, app/, alembic/, alembic.ini
+├── data/               (repository-level directory — used by backend image at runtime)
+├── frontend/
+├── infrastructure/     docker/, nginx/
+├── docs/ scripts/ .github/
 ```
-docker build -t udyogsetu-backend  -f infrastructure/docker/Dockerfile.backend  .
+
+Confirmations:
+- `backend/requirements.txt` ... inside `backend/`.
+- `backend/app` ... inside `backend/`.
+- `backend/alembic*` ... inside `backend/`.
+- `data/` ... at repository root (NOT inside `backend/`).
+
+Therefore the **preferred architecture** applies: backend Docker build must use the repository
+root as context. `data/` was NOT moved into `backend/data/` (no duplication, no deletion).
+
+## 5. Dockerfile Changes
+
+**None required — and none applied.** The Dockerfiles retain their intended COPY paths:
+
+```dockerfile
+COPY backend/requirements.txt .
+COPY backend/alembic.ini .
+COPY backend/alembic ./alembic
+COPY backend/app ./app
+COPY data ./data
+```
+
+## 6. .dockerignore Changes
+
+`.dockerignore` (root) inspected:
+
+- Does NOT exclude `backend/`, `data/`, or `infrastructure/`.
+- Does NOT use a broad `**` or `*` rule.
+- Excludes only junk/artifacts/secrets: `node_modules`, `venv`, `__pycache__`, `*.pyc`, `.next`,
+  `dist`, `build`, `frontend/.swc`, `.env`, `.git`, `.gitignore`, `.github`, `.DS_Store`,
+  `*.log`, `backend-build.log`, `coverage`, and the two optional data blobs
+  `data/mock_government_data`, `data/sample_documents` (not required by the built image).
+- Added this audit: `frontend/.swc`, `.github` (buildable with a root context).
+
+Final CI build context therefore contains `backend/requirements.txt`, `backend/app/`,
+`backend/alembic/`, `backend/alembic.ini`, `data/`, and `infrastructure/docker/Dockerfile.backend`.
+
+## 7. GitHub Actions Changes
+
+`.github/workflows/ci.yml`:
+
+- `docker-build` backend:
+  - BEFORE: `docker build -t udyogsetu-backend -f infrastructure/docker/Dockerfile.backend backend`
+  - AFTER:  `docker build -t udyogsetu-backend -f infrastructure/docker/Dockerfile.backend .`
+- `docker-build` frontend: `frontend` → `.` (same reason).
+- Backend-tests job: added `Verify migrations (alembic upgrade head + check)` step against a real
+  Postgres service; removed the dead env block and the unused Redis service.
+- No `continue-on-error`, no disabled steps, no excluded tests.
+
+Verified exhausted alternatives and rejected the "move `data/`" approach — `data/` is a
+repository-level directory by design.
+
+## 8. Backend Test Results
+
+`python -m pytest tests -q` (fresh run, local)
+
+```text
+196 passed, 1 warning in 747.68s
+```
+
+CI `backend-tests` job on `6742e799`: **success**.
+
+Also resolves the previously-reported legacy failure:
+`TypeError: Invalid argument(s) 'pool_size', 'max_overflow' sent to create_engine()` (SQLite).
+`backend/app/core/database.py:_engine_kwargs` now applies pool args **only** when
+`url.startswith("postgresql")`; `tests/conftest.py` pins SQLite before app import. The 196 passing
+tests prove SQLite test engines receive no PostgreSQL-only pool arguments.
+
+## 9. Backend Lint Results
+
+`ruff check .` (project-configured linter, backend):
+
+```text
+All checks passed!
+```
+
+CI `lint` job on `6742e799`: **success**. No blanket `noqa`, no tests excluded, no linter disabled.
+
+## 10. Frontend Test Results
+
+`npm test -- --ci` (jest):
+
+```text
+PASS __tests__/auth.test.ts
+PASS __tests__/api-contract.test.ts
+PASS __tests__/utils.test.ts
+Test Suites: 3 passed, 3 total
+Tests:       16 passed, 16 total
+```
+
+CI `frontend-tests` job on `6742e799`: **success**.
+
+## 11. TypeScript Results
+
+`npx tsc --noEmit` → **exit 0**, no errors.
+
+## 12. Production Build Results
+
+`npm run build` → **exit 0** (Next.js standalone output; static + dynamic routes compiled).
+
+## 13. Docker Backend Build
+
+Exact CI command (root context), run locally:
+
+```bash
+docker build -t udyogsetu-backend -f infrastructure/docker/Dockerfile.backend .
+```
+
+**PASS** (exit 0). Image: `python:3.11-slim`, CMD `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000`, user `appuser`, WORKDIR `/app`.
+
+## 14. Docker Frontend Build
+
+Exact CI command, run locally:
+
+```bash
 docker build -t udyogsetu-frontend -f infrastructure/docker/Dockerfile.frontend .
 ```
 
-### Verification (exact CI commands, run locally)
-```
-docker build -t udyogsetu-backend  -f infrastructure/docker/Dockerfile.backend  .  → SUCCESS
-docker build -t udyogsetu-frontend -f infrastructure/docker/Dockerfile.frontend .  → SUCCESS
-```
+**PASS** (exit 0). Image: `node:20-alpine` multi-stage, Next.js standalone server, user `nextjs`.
 
----
+## 15. Docker Compose
 
-## 3. Repository
+- `docker compose config -q` → **exit 0** (valid; frontend healthcheck, nginx certs mount present).
+- `docker compose build` → **exit 0** (both images built via Compose, context `.`).
+- `docker compose up -d` → all services running (local override 8080/8443 because Windows owns
+  port 80; base compose keeps production 80/443).
+- `docker compose ps`: backend healthy, frontend healthy, postgres healthy, redis healthy, nginx up.
 
-| Check | Result |
+## 16. PostgreSQL
+
+- `pg_isready` → `accepting connections`, version 15 (Compose Postgres).
+- 16 application tables present in `public`.
+- Backend `/health` returns `"database": "ok"`.
+
+## 17. Redis
+
+- `redis-cli ping` → **PONG**.
+- Redis 7 container health check green.
+
+## 18. Alembic
+
+- `alembic upgrade head` runs automatically at container start → head **0005**.
+- `alembic check` (live DB) → **No new upgrade operations detected.**
+- Migration `0005_reconcile_orm` (inspector-guarded) repairs legacy databases (drops stale
+  `approvals.custom_metadata`, adds 5 missing FK indexes) and is a no-op on fresh databases —
+  verified on a fresh DB (`0001→0005` clean + `alembic check` clean).
+- CI now exercises the real chain against a Postgres service.
+
+## 19. Authentication
+
+- `POST /api/auth/login` (officer demo account) through the nginx TLS proxy → **200**, JWT issued
+  (HS256, correct sub/email/role/exp), `bearer` type, `expires_in: 86400`.
+- JWT policy: production with an empty/absent `JWT_SECRET_KEY` fails fast at startup
+  (`config.py` validator + `AUTO_GENERATED_SECRET` only outside production); compose `:?` guard.
+- Refresh/logout/register endpoints covered by the 196-test suite and the live E2E audit.
+
+## 20. Entrepreneur
+
+Demo entrepreneur account:
+- Login → 200 + JWT. Dashboard accesses (projects, applications, compliance, explore, schemes,
+  documents, chat) → 200.
+- Project ownership enforced (cannot read other users' projects; random/malformed UUIDs → 404/422).
+- Non-privileged actions (e.g. creating/updating explore services) → **403**.
+- Status in E2E audit: **PASS**.
+
+## 21. Officer
+
+Demo officer account:
+- Login → 200 + JWT. Officer dashboard/gateway views → 200.
+- Gateway submissions and government-system health endpoint → 200.
+- Can read own projects; cross-tenant access blocked (**403/404**).
+- Status in E2E audit: **PASS**.
+
+## 22. Admin
+
+Demo admin account:
+- Explore-service CRUD: create 201, duplicate 409, update 200 — all **PASS**.
+- Observability/admin routes → 200.
+- Privilege boundaries (entrepreneur attempting admin actions) → 403.
+- Status in E2E audit: **PASS**.
+
+## 23. RBAC
+
+- Server-side enforcement verified, not just UI hiding: officer↔entrepreneur data isolation,
+  admin-only endpoints, BO/BOLA probes (foreign project → 403/404), malformed input → 422.
+- Live audit: **131/131 PASS** (`SUMMARY: 131/131 PASS 0 FAIL`).
+
+## 24. Security
+
+- Git: no `.env`, `.pem`, `.key`, DB dumps, API keys, tokens, or override files tracked; only
+  `.env.example` with placeholders. `git grep` for AI/cloud/JWT/private-key patterns → no matches.
+- Images: `docker image inspect udyogsetu-backend` → `Config.Env` contains **only base-image
+  variables** (PATH, LANG, PYTHON_VERSION, ...); no secrets baked at build time. Runtime secrets are
+  injected by Compose at container creation (correct pattern).
+- Certificates (`infrastructure/nginx/certs/*.pem`) and `docker-compose.override.yml` are
+  gitignored.
+- JWT production fail-fast + strong secret kept only in the untracked local `.env`.
+
+## 25. Government Integrations
+
+| Integration | Status |
 |---|---|
-| Repo structure (backend / frontend / data / infrastructure / docs) | PASS |
-| Git status clean at commit point (only intended files committed) | PASS |
-| No secrets in tracked files (see Security section) | PASS |
-| `data/` present at repo root and consumed at build time (`COPY data ./data`) | PASS |
+| MAITRI (Monday portal) | **MOCK** — simulated sandbox adapter (latency + seeded data) |
+| MPCB | **MOCK** — simulated sandbox adapter |
+| MIDC | **MOCK** — simulated sandbox adapter |
+| Boiler / Fire / Labour | **MOCK DEMO** — seeded rules/checklists |
+| PAN / GST / Udyam / CIN "verify" | **DEMO (derived mock)** — deterministic mock responses |
+| Real government APIs | **NOT CONFIGURED** — no authorized API credentials exist for this project |
 
----
+Gateway health reports each simulated system as `HEALTHY` with simulated `availability_pct`; this
+is demo behavior. Production deployment must re-point adapters to real APIs with authorized
+credentials. No claim is made that live government data is being used.
 
-## 4. Dockerfiles & `.dockerignore`
+## 26. Files Changed
 
-| Check | Result |
-|---|---|
-| `Dockerfile.backend` — root context, non-root `appuser`, uv+venv, `alembic upgrade head && uvicorn --host 0.0.0.0 --port 8000`, HEALTHCHECK | PASS |
-| `Dockerfile.frontend` — root context, Next.js standalone, non-root `nextjs`, `node server.js`, HEALTHCHECK | PASS |
-| `.dockerignore` excludes `node_modules`, `venv`, `__pycache__`, `.next`, `.env`, `.git`, `*.log`, secrets data dirs, `frontend/.swc`, `.github` | PASS |
-| No source/build secrets baked into images (image `Config.Env` empty of credentials) | PASS |
-
----
-
-## 5. GitHub Actions / CI
-
-| Job | Change / Status |
-|---|---|
-| `backend-tests` | Postgres service kept; removed dead env block and unused Redis service; **added** `Verify migrations (alembic upgrade head + check)` step against the CI Postgres — runs the real migration chain in CI |
-| `frontend-tests` | Unchanged — jest + `npm run build` |
-| `lint` | Unchanged — `ruff check .` (backend) + `npm run lint` (frontend) |
-| `docker-build` | **Fixed contexts to `.`**; still `needs` the three test jobs and `if` main-branch push |
-| `deploy-staging` | Stub `echo` (no `continue-on-error`, not masking anything) |
-
-No `continue-on-error`, no test skips, no masking.
-
----
-
-## 6. Backend Image
-
-- CMD: `sh -c alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000`
-- Workdir `/app`, user `appuser`, `EXPOSE 8000`, ~1.18 GB.
-- Healthcheck = `/health` via `urllib` (healthy).
-- Migration runner now includes `0005` (see §9).
-
-## 7. Frontend Image
-
-- CMD `node server.js` (Next.js standalone), workdir `/app`, user `nextjs`, `EXPOSE 3000`, ~306 MB.
-- Healthcheck: `wget -qO- http://127.0.0.1:3000/`.
-
-## 8. Docker Compose / Deployment
-
-- Backend, frontend build from repo root (context `.`, correct dockerfile paths) — PASS.
-- `JWT_SECRET_KEY` enforced via Compose interpolation `:?` (fails fast if unset) — PASS.
-- Nginx: HTTP→HTTPS 301, TLS on 443 (self-signed certs mounted from `infrastructure/nginx/certs/`, generated by `scripts/gen-certs.sh`), reverse proxy `/api/` → backend, `/` → frontend, `/docs`, `/openapi.json` — PASS.
-- Health checks on Postgres, Redis, backend, frontend — all PASS.
-- Local note (non-deployed): Windows host reserves port 80, so a **gitignored**
-  `docker-compose.override.yml` remaps nginx to `8080:80` / `8443:443` for local verification.
-  The base `docker-compose.yml` keeps the production `80/443` contract.
-- `docker compose config -q` → exit 0.
-- Live stack: frontend, backend, postgres, redis all Healthy; nginx up. Verified through the TLS
-  proxy: `GET /` (frontend HTML) 200, `POST /api/auth/login` (officer) 200 + JWT, `GET /docs` via nginx 200, HTTP→HTTPS redirect 301.
-
-## 9. PostgreSQL & Alembic Migrations
-
-- Live `alembic_version` at `0004` → now `0005` after repair.
-- **Drift found & repaired:** `alembic check` on the legacy live DB flagged (a) a stale
-  `approvals.custom_metadata` column that predates the current migration chain and (b) five missing
-  FK indexes (`ix_approvals_project_id`, `ix_projects_user_id`, `ix_documents_project_id`,
-  `ix_notifications_user_id`, `ix_compliance_items_project_id`) that fresh migrations create but the
-  older create_all-initialised DB lacked.
-- **`0005_reconcile_orm.py`** added: each operation is inspector-guarded so it is a **no-op on a
-  freshly migrated database** and repairs a legacy one. Verified both ways:
-  - Fresh temp DB `0001→0002→0003→0004→0005` clean; `alembic check` → **No new upgrade operations detected**.
-  - Live DB: `custom_metadata` dropped, all 5 indexes created; `alembic check` → **No new upgrade operations detected**.
-- `alembic upgrade head` runs automatically on backend container start — PASS.
-- 16 tables in `public`; backend `/health` reports `database: ok`.
-
-## 10. Redis
-
-- `docker exec udyogsetu-redis redis-cli ping` → `PONG` — PASS.
-- Health check green; used by the containerized backend without issue.
-
-## 11. Health Checks
-
-| Component | Check | Result |
-|---|---|---|
-| Postgres | `pg_isready` | PASS |
-| Redis | `redis-cli ping` | PASS |
-| Backend | `GET /health` → `{"status":"healthy","version":"1.0.0","environment":"production","database":"ok"}` | PASS |
-| Frontend | `wget http://127.0.0.1:3000/` (found bug: busybox `wget localhost:3000` resolved to `::1` while Next standalone binds IPv4 → fixed to `127.0.0.1`) | PASS |
-
-## 12. Application — Live Full-Role Audit
-
-Live audit harness against the running stack with demo accounts
-(officer / entrepreneur / admin):
-**131/131 PASS, 0 FAIL** (coverage includes auth, RBAC + role boundaries, BO/BOLA checks
-officer↔entrepreneur, malformed-input 422s, admin CRUD for explore services incl. 403 for
-entrepreneurs + 409 duplicates, gateway GSTIN/PAN/Udyam verify, observability, frontend routes,
-knowledge graph, schemes, compliance).
-
-## 13. Tests, Lint, Typecheck, Build
-
-| Check | Command | Result |
-|---|---|---|
-| Backend tests | `pytest tests -q` | **196 passed** |
-| Backend lint | `ruff check .` | **All checks passed** |
-| Frontend tests | `jest` via `npm test` | **16 passed** (3 suites) |
-| Frontend typecheck | `tsc --noEmit` | exit 0 |
-| Frontend lint | `npm run lint` | exit 0 |
-| Frontend build | `npm run build` | exit 0 |
-| Docker backend build | CI-equivalent | SUCCESS |
-| Docker frontend build | CI-equivalent | SUCCESS |
-
-## 14. Security
-
-| Check | Result |
-|---|---|
-| Tracked-file secret scan (AI/API/SSH/cloud token patterns) | PASS — no matches |
-| Inline credential scan (DB URLs, JWT, passwords outside tests) | PASS — only documented placeholders in `.env.example` / docs |
-| Tracked credentials/key files (`.pem`, `.key`, `.env`, secrets) | PASS — none tracked; certs & real `.env` gitignored |
-| JWT secret policy (production + empty secret → app refuses to start; `AUTO_GENERATED_SECRET` allowed only outside production) | PASS |
-| RBAC/BOLA/IDOR live checks in §12 | PASS (unauthorized access blocked 403/404) |
-
-## 15. Government Integrations (honest disclosure)
-
-MAITRI / MPCB / MIDC / Boiler / Fire / Labour integrations are **MOCK sandbox / derived-mock only**
-(simulated latency, seeded statuses). PAN/GST/Udyam/CIN "verify" endpoints return derived-mock
-results. Governance: gateway health endpoint reports each system as `HEALTHY` with simulated
-`availability_pct` — this is a design decision for the demo and IS NOT live government data. Any
-production claim must re-point these adapters at the real APIs and remove the mock simulation.
-This is a known limitation (see §16), not a hidden claim.
-
-## 16. Known Limitations
-
-1. Government integrations are mock-only (see §15) — require real API onboarding for production.
-2. Nginx uses self-signed certificates generated by `scripts/gen-certs.sh` — replace with a real
-   CA certificate + set `server_name` for production.
-3. `deploy-staging` CI job is a stub `echo` — the deployment target (host/cloud) must be wired up.
-4. Windows local verification uses the gitignored `8080/8443` override because host port 80 is owned
-   by http.sys; production base config keeps 80/443.
-5. Compliance/MIDC style checks run against seeded mock data, not live regulators.
-6. Backend image (~1.18 GB) and frontend (~306 MB) — acceptable for this project; could be slimmed.
-
-## 17. Files Changed (this deployment audit)
-
-- `.github/workflows/ci.yml` — build contexts `.`; added migrations-verification step; removed dead env/unused redis service.
-- `docker-compose.yml` — nginx certs mount; frontend healthcheck (`127.0.0.1`).
+- `.github/workflows/ci.yml` — build contexts `.` (backend+frontend); added `Verify migrations`
+  step (alembic upgrade head + check on Postgres service); removed dead env/Redis service.
+- `backend/alembic/versions/0005_reconcile_orm.py` — new legacy-DB repair migration (guarded).
+- `frontend/public/.gitkeep` — new; preserves `public/` in CI checkouts (fixed the residual CI-only
+  frontend COPY failure).
+- `docker-compose.yml` — nginx TLS certs mount; frontend healthcheck `127.0.0.1:3000`.
 - `.dockerignore` — added `frontend/.swc`, `.github`.
-- `.gitignore` — ignore `infrastructure/nginx/certs/*.pem` / `*.csr` / `.srl`, `docker-compose.override.yml`.
-- `scripts/gen-certs.sh` (new) — self-signed TLS cert generator.
-- `backend/alembic/versions/0005_reconcile_orm.py` (new) — legacy-DB repair migration.
-- `frontend/public/.gitkeep` (new) — preserves `public/` in CI checkouts (CI-parity fix for the frontend image build).
-- `infrastructure/nginx/certs/.gitkeep` (new) — tracked placeholder so the certs dir exists.
-- (`docker-compose.override.yml` — created locally, gitignored, not committed.)
+- `.gitignore` — ignore `infrastructure/nginx/certs/*.pem|*.csr|.srl`, `docker-compose.override.yml`.
+- `scripts/gen-certs.sh` — new self-signed cert generator.
+- `infrastructure/nginx/certs/.gitkeep` — tracked placeholder.
+- `UDYOGSETU_FINAL_DEPLOYMENT_READINESS_REPORT.md` — this report.
 
-## 18. Git Commit & Push
+## 27. Git Commit
 
-- First commit: `45be90b468ea4ac9b33df62447787499f8f0509e` — CI pipeline/Docker context fix, migration `0005`, cert script, compose, report.
-- Second commit: `1c5e97b91c54b39b72bd6e466fd5fe170580ce4c` — CI-parity fix for the frontend image.
+`main` history for this fix (commits already landed):
 
-> **CI follow-up (found & fixed while verifying the pipeline):** the first CI run after the
-> context fix showed `docker-build` failing on the *frontend* image only. Root cause: the
-> frontend `COPY --from=builder /app/public ./public` requires a `public/` directory, but git does
-> not track empty directories — the empty `public/` existed only on the local filesystem, so the
-> GitHub Actions checkout lacked it (`COPY` "not found", exit 1). Local builds (even `--no-cache`)
-> masked this only because the empty directory happened to exist on the developer machine. Fixed by
-> committing a tracked `frontend/public/.gitkeep`, then verified with a **git-faithful tree**
-> (`git archive` → separate checkout → identical Docker build) — the same condition CI sees —
-> which succeeds after the fix.
-> Final GitHub Actions run on `1c5e97b9`: `frontend-tests` ✅, `lint` ✅, `backend-tests` ✅,
-> `docker-build` ✅, `deploy-staging` ✅ — **all green**.
-
----
-
-## Verification Output (exact)
-
-```
-Backend Docker build (CI command) ..... PASS
-Frontend Docker build (CI command) .... PASS
-docker compose config .................. PASS (exit 0)
-Compose stack up (5 services) .......... PASS (backend/frontend/postgres/redis Healthy, nginx up)
-Backend /health ........................ PASS {"status":"healthy","database":"ok"}
-Postgres (16 tables, alembic 0005) ..... PASS
-alembic check (fresh DB) ................ PASS No new upgrade operations detected
-alembic check (live DB) ................. PASS No new upgrade operations detected
-Redis ping .............................. PASS PONG
-Frontend healthcheck .................... PASS (healthy)
-Nginx HTTPS / ........................... PASS HTTP 200 (frontend HTML via TLS)
-Nginx HTTPS /api/auth/login ............. PASS HTTP 200 (JWT issued)
-Nginx HTTP→HTTPS 301 .................... PASS
-Backend pytest .......................... PASS 196 passed
-Backend ruff ............................ PASS All checks passed
-Frontend jest ........................... PASS 16 passed (3 suites)
-Frontend tsc ............................ PASS exit 0
-Frontend lint ........................... PASS exit 0
-Frontend build .......................... PASS exit 0
-Live full-role audit .................... PASS 131/131
-Secret/credential scan .................. PASS no matches
-Roles (entrepreneur/officer/admin) ...... PASS
-RBAC boundaries (BO/BOLA) ............... PASS
-Government integrations ................. MOCK (documented)
+```text
+6742e799 docs: finalize deployment readiness report with CI results and commits
+1c5e97b9 fix: track frontend/public/.gitkeep so CI docker build finds /app/public
+45be90b4 fix: correct Docker build contexts and reconcile CI/deployment pipeline
+ab4b68db UDYOGSETU: production readiness pass - compliance seeding, JWT secret fail-fast, ...
 ```
 
-> Exact roll-up:
+## 28. GitHub Push
 
-- docker-build backend ………………… PASS
-- docker-build frontend ………………… PASS
-- compose/config ………………………… PASS
-- compose up dependent services ……… ALL UP, HEALTHY
-- DB / Postgres ………………………… PASS
-- Redis …………………………………… PASS
-- alembic upgrade head ………………… PASS
-- alembic check (fresh + live) ……… PASS
-- backend tests ………………………… PASS (196)
-- frontend tests ………………………… PASS (16)
-- backend lint …………………………… PASS
-- frontend lint ………………………… PASS
-- frontend tsc …………………………… PASS
-- frontend build ………………………… PASS
-- health checks ………………………… ALL PASS
-- full-role/RBAC/security audit …… 131/131 PASS
-- government API honesty ……………… DOCUMENTED MOCK
-- secret scan …………………………… PASS
-- Git commit ……………………………… 45be90b4 + 1c5e97b9 (see §18)
-- GitHub push …………………………… SUCCESS
-- GitHub Actions ……………………… ALL GREEN (backend-tests, frontend-tests, lint, docker-build, deploy-staging)
+Pushed with `git push --force-with-lease origin main` (remote `main` matched local each time; no
+force-plain needed). Verified: `origin/main == local HEAD == 6742e79984162d3242c9274b93592a0b6c395f7f`.
 
-**Overall verdict: 🟢 READY FOR DEPLOYMENT**
+## 29. GitHub Actions Result
+
+Latest run on `6742e79` (run id `33977062218`):
+
+```text
+backend-tests   -> success
+frontend-tests  -> success
+lint            -> success
+docker-build    -> success   (steps: ... Set up Docker Buildx, Build backend image, Build frontend image ...)
+deploy-staging  -> success
+```
+
+Run on `1c5e97b`: **success** as well. Pre-fix runs `ab4b68d`/`45be90b` failed and are historical.
+The workflow source on `main` (fetched raw from GitHub) shows `.` contexts — CI and local builds are
+identical.
+
+## 30. Known Limitations
+
+1. Government adapters are MOCK/DEMO; real APIs NOT CONFIGURED (no credentials available). See §25.
+2. Nginx uses self-signed certs (`scripts/gen-certs.sh`) — replace with a CA-signed cert for prod.
+3. `deploy-staging` job is an `echo` stub; hosting target not wired up.
+4. `NEXT_PUBLIC_API_URL` is baked into the frontend at build time (currently `localhost` default);
+   set to the deployed domain when building for production.
+5. Local verification uses the gitignored `8080/8443` override (Windows owns port 80); the base
+   compose file keeps the production 80/443 contract.
+
+## 31. Final Readiness Verdict
+
+**🟢 READY FOR DEPLOYMENT** — Docker build context verified identical between local and GitHub
+Actions; both CI image builds and every test/lint/type/build/DB/Redis/migration/auth/RBAC/security
+check pass.
