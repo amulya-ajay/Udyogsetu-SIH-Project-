@@ -26,14 +26,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -50,16 +42,20 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      # The pytest suite deliberately runs against a throwaway SQLite database
+      # (see tests/conftest.py); PostgreSQL is still exercised here by
+      # verifying the full Alembic migration chain on a real Postgres service.
       - name: Run backend tests
+        working-directory: ./backend
+        run: python -m pytest tests -q
+
+      - name: Verify migrations (alembic upgrade head + check)
         working-directory: ./backend
         env:
           DATABASE_URL: postgresql+asyncpg://udyogsetu:password@localhost:5432/udyogsetu
-          REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET_KEY: test-secret-key-for-ci-testing-purposes-only-32chars
-          ALLOWED_HOSTS: '["*"]'
-          RATE_LIMIT_ENABLED: "false"
-          DEBUG: "true"
-        run: python -m pytest tests -q
+        run: |
+          alembic upgrade head
+          alembic check
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -128,10 +124,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build backend image
-        run: docker build -t udyogsetu-backend -f infrastructure/docker/Dockerfile.backend backend
+        run: docker build -t udyogsetu-backend -f infrastructure/docker/Dockerfile.backend .
 
       - name: Build frontend image
-        run: docker build -t udyogsetu-frontend -f infrastructure/docker/Dockerfile.frontend frontend
+        run: docker build -t udyogsetu-frontend -f infrastructure/docker/Dockerfile.frontend .
 
   deploy-staging:
     runs-on: ubuntu-latest

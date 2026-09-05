@@ -25,5 +25,11 @@ backend-build.log
 Thumbs.db
 .vscode/
 
+# Local TLS (self-signed, development only - see scripts/gen-certs.sh)
+infrastructure/nginx/certs/*.pem
+infrastructure/nginx/certs/*.csr
+infrastructure/nginx/certs/.srl
+
 # Temp
 *.tmp
+docker-compose.override.yml

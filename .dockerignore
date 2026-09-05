@@ -8,6 +8,7 @@ __pycache__
 .next
 dist
 build
+frontend/.swc
 
 # Environment
 .env
@@ -15,6 +16,7 @@ build
 # Git
 .git
 .gitignore
+.github
 
 # OS
 .DS_Store
