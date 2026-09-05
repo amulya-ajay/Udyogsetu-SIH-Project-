@@ -1,9 +1,11 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Scheme
 from app.schemas import SchemeMatcher
+
 
 class SchemeMatcher:
     """Scheme matching and discovery service"""
@@ -40,19 +42,16 @@ class SchemeMatcher:
         score = 0.0
         
         # Sector match
-        if scheme.sector and matcher.industry:
-            if scheme.sector.lower() in matcher.industry.lower():
-                score += 30
+        if scheme.sector and matcher.industry and scheme.sector.lower() in matcher.industry.lower():
+            score += 30
         
         # Investment range match
-        if scheme.min_investment and scheme.max_investment:
-            if scheme.min_investment <= matcher.investment <= scheme.max_investment:
-                score += 30
+        if scheme.min_investment and scheme.max_investment and scheme.min_investment <= matcher.investment <= scheme.max_investment:
+            score += 30
         
         # Employee requirement match
-        if scheme.employee_requirement:
-            if matcher.employees >= scheme.employee_requirement:
-                score += 20
+        if scheme.employee_requirement and matcher.employees >= scheme.employee_requirement:
+            score += 20
         
         # Location match
         if scheme.location:
@@ -64,17 +63,14 @@ class SchemeMatcher:
         """Generate human-readable reason for scheme match"""
         reasons = []
         
-        if scheme.sector and matcher.industry:
-            if scheme.sector.lower() in matcher.industry.lower():
-                reasons.append(f"Your {matcher.industry} business qualifies")
+        if scheme.sector and matcher.industry and scheme.sector.lower() in matcher.industry.lower():
+            reasons.append(f"Your {matcher.industry} business qualifies")
         
-        if scheme.min_investment and scheme.max_investment:
-            if scheme.min_investment <= matcher.investment <= scheme.max_investment:
-                reasons.append(f"Investment amount matches")
+        if scheme.min_investment and scheme.max_investment and scheme.min_investment <= matcher.investment <= scheme.max_investment:
+            reasons.append("Investment amount matches")
         
-        if scheme.employee_requirement:
-            if matcher.employees >= scheme.employee_requirement:
-                reasons.append(f"Employee count eligible")
+        if scheme.employee_requirement and matcher.employees >= scheme.employee_requirement:
+            reasons.append("Employee count eligible")
         
         return " | ".join(reasons) if reasons else "Good match"
     

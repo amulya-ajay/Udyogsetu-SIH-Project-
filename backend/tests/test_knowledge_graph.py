@@ -1,7 +1,12 @@
 """Tests for the knowledge graph builder (spec §31)."""
 
 from app.models import (
-    Approval, ComplianceItem, Document, Project, User, UserRole,
+    Approval,
+    ComplianceItem,
+    Document,
+    Project,
+    User,
+    UserRole,
 )
 from app.services.knowledge_graph import KnowledgeGraphService
 

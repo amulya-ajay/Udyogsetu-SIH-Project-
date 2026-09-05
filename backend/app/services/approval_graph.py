@@ -12,7 +12,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ApprovalRule, Approval
+from app.models import Approval, ApprovalRule
 
 
 class ApprovalGraphService:

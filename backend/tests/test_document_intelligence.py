@@ -3,8 +3,8 @@
 import uuid
 
 from app.services.document_intelligence import (
-    DocumentIntelligenceService,
     CrossDocumentValidator,
+    DocumentIntelligenceService,
     fuzzy_match,
 )
 

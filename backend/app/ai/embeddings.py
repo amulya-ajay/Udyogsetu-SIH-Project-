@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from abc import ABC, abstractmethod
-from typing import Sequence
+from collections.abc import Sequence
 
 from app.core.config import settings
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 try:  # optional dependency
     from sentence_transformers import SentenceTransformer  # type: ignore
     _ST_AVAILABLE = True
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     _ST_AVAILABLE = False
 
 
@@ -108,7 +108,7 @@ class EmbeddingProviderFactory:
         if name in ("sentence-transformers", "st", "sbert"):
             try:
                 return SentenceTransformersEmbeddingProvider()
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:  # noqa: BLE001 - model load can fail on download/OS state
                 logger.warning("Falling back to mock embeddings: %s", exc)
                 return MockEmbeddingProvider()
         return MockEmbeddingProvider()

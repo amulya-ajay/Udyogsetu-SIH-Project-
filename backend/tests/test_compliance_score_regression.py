@@ -17,7 +17,14 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.models import Approval, ApprovalStatus, ComplianceItem, ComplianceStatus, Project, User
+from app.models import (
+    Approval,
+    ApprovalStatus,
+    ComplianceItem,
+    ComplianceStatus,
+    Project,
+    User,
+)
 
 
 @pytest.fixture
@@ -44,7 +51,7 @@ async def test_compliance_score_no_500_and_status_scored(db_session, project_wit
     """Score endpoint regressions: no crash, approval status contributes > 0."""
     from app.services.compliance_tracker import ComplianceTracker
 
-    user, project = project_with_approvals
+    _user, project = project_with_approvals
 
     approved = Approval(
         project_id=project.id,
@@ -76,7 +83,7 @@ async def test_compliance_alerts_include_approved_near_renewal(db_session, proje
     """Enum-vs-string fix: APPROVED approvals (and not others) surface alerts."""
     from app.services.compliance_tracker import ComplianceTracker
 
-    user, project = project_with_approvals
+    _user, project = project_with_approvals
 
     due = Approval(
         project_id=project.id,
@@ -112,7 +119,7 @@ async def test_compliance_dashboard_scores_enum_status(db_session, project_with_
     """Dashboard no longer always zeros: compliant fraction is reflected."""
     from app.services.compliance import ComplianceService
 
-    user, project = project_with_approvals
+    _user, project = project_with_approvals
 
     on_track = ComplianceItem(
         project_id=project.id,

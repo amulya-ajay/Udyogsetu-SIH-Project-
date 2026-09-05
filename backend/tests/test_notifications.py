@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from app.models import Notification, User
+from app.models import User
 
 
 @pytest.fixture

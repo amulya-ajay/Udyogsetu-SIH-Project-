@@ -41,7 +41,7 @@ class SlaEngine:
     """Computes SLA status and breach probability for an application."""
 
     # The terminal "success" statuses that stop an SLA being breached.
-    SUCCESS = {ApprovalStatus.APPROVED}
+    SUCCESS = frozenset({ApprovalStatus.APPROVED})
 
     def evaluate(
         self,

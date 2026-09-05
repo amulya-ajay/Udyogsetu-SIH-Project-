@@ -15,13 +15,12 @@ query, the project's own documents, and the regulatory KB.
 from __future__ import annotations
 
 import logging
-from uuid import UUID
 
 from sqlalchemy import select
 
+from app.ai.llm_provider import generate_with_fallback
 from app.models import Approval, Document, GovernmentApplication
 from app.services.gateway_service import GatewayService
-from app.ai.llm_provider import generate_with_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +90,9 @@ class QueryResolutionService:
             rag = await RAGService(self.db).answer_regulatory_question(query_text)
             regulatory_context = rag.get("sources", [])[:3]
 
-        from app.services.ai_observability import AIObservability
         import time as _time
+
+        from app.services.ai_observability import AIObservability
         obs = AIObservability(self.db)
         start = _time.perf_counter()
         try:
@@ -106,16 +106,16 @@ class QueryResolutionService:
                 ),
                 temperature=0.3,
             )
-        except Exception:
+        except Exception:  # re-raise after logging the observability failure
             try:
                 await obs.log_event(request_type="query_resolution", latency_ms=int((_time.perf_counter() - start) * 1000), success=False, error_kind="generation_failed")
-            except Exception:
-                pass
+            except Exception as obs_err:  # noqa: BLE001 - telemetry write must stay fire-and-forget
+                logger.debug("AI observability failed event skipped: %s", obs_err)
             raise
         try:
             await obs.log_event(request_type="query_resolution", latency_ms=int((_time.perf_counter() - start) * 1000), success=True)
-        except Exception:
-            pass
+        except Exception as obs_err2:  # noqa: BLE001 - telemetry write must stay fire-and-forget
+            logger.debug("AI observability success event skipped: %s", obs_err2)
 
         return {
             "query_present": True,

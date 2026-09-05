@@ -1,9 +1,8 @@
-from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional, List
-
 from enum import Enum
+from uuid import UUID
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserRole(str, Enum):
@@ -74,8 +73,8 @@ class ProjectOnboarding(BaseModel):
     location_state: str = Field(min_length=2)
     location_district: str = Field(min_length=2)
     location_city: str = Field(min_length=2)
-    location_industrial_area: Optional[str] = None
-    location_midc_estate: Optional[str] = None
+    location_industrial_area: str | None = None
+    location_midc_estate: str | None = None
     land_type: str = Field(min_length=2)
 
     employees: int = Field(ge=0)
@@ -94,9 +93,9 @@ class ProjectResponse(BaseModel):
     company_name: str
     industry: str
     sector: str
-    investment_amount: Optional[float]
-    location_state: Optional[str]
-    location_district: Optional[str]
+    investment_amount: float | None
+    location_state: str | None
+    location_district: str | None
     created_at: datetime
 
     class Config:
@@ -109,7 +108,7 @@ class ApprovalResponse(BaseModel):
     department: str
     status: str
     is_mandatory: bool
-    estimated_processing_days: Optional[int]
+    estimated_processing_days: int | None
     risk_level: str
 
     class Config:
@@ -134,8 +133,8 @@ class ComplianceItemResponse(BaseModel):
     category: str
     requirement: str
     status: str
-    due_date: Optional[datetime]
-    next_due: Optional[datetime]
+    due_date: datetime | None
+    next_due: datetime | None
 
     class Config:
         from_attributes = True
@@ -153,12 +152,12 @@ class SchemeResponse(BaseModel):
     id: UUID
     name: str
     department: str
-    sector: Optional[str]
-    min_investment: Optional[float]
-    max_investment: Optional[float]
+    sector: str | None
+    min_investment: float | None
+    max_investment: float | None
     benefits: list
-    match_score: Optional[float] = None
-    match_reason: Optional[str] = None
+    match_score: float | None = None
+    match_reason: str | None = None
 
     class Config:
         from_attributes = True
@@ -168,22 +167,22 @@ class GovernmentServiceResponse(BaseModel):
     id: UUID
     slug: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     category: str
     authority: str
     department: str
     service_type: str
     application_mode: str
     status: str
-    official_reference: Optional[str] = None
-    external_portal_url: Optional[str] = None
+    official_reference: str | None = None
+    external_portal_url: str | None = None
     applicable_documents: list = Field(default_factory=list)
-    fees: Optional[str] = None
-    eligibility_summary: Optional[str] = None
+    fees: str | None = None
+    eligibility_summary: str | None = None
     risk_level: str = "MEDIUM"
-    sla_days: Optional[int] = None
-    renewal_period_days: Optional[int] = None
-    gateway_system: Optional[str] = None
+    sla_days: int | None = None
+    renewal_period_days: int | None = None
+    gateway_system: str | None = None
     is_demo: bool = False
     is_active: bool = True
 
@@ -206,22 +205,22 @@ class ExploreDocumentAttachRequest(BaseModel):
 class GovernmentServiceCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=100)
     name: str = Field(min_length=2, max_length=255)
-    description: Optional[str] = None
+    description: str | None = None
     category: str = Field(min_length=2, max_length=100)
     authority: str = Field(min_length=2, max_length=255)
     department: str = Field(min_length=2, max_length=100)
     service_type: str = "APPROVAL"
     application_mode: str = "GUIDED"
-    official_reference: Optional[str] = None
-    external_portal_url: Optional[str] = None
+    official_reference: str | None = None
+    external_portal_url: str | None = None
     applicable_documents: list = Field(default_factory=list)
-    fees: Optional[str] = None
-    eligibility_summary: Optional[str] = None
+    fees: str | None = None
+    eligibility_summary: str | None = None
     risk_level: str = "MEDIUM"
-    sla_days: Optional[int] = None
-    renewal_period_days: Optional[int] = None
-    approval_rule_id: Optional[UUID] = None
-    gateway_system: Optional[str] = None
+    sla_days: int | None = None
+    renewal_period_days: int | None = None
+    approval_rule_id: UUID | None = None
+    gateway_system: str | None = None
     is_demo: bool = False
     is_active: bool = True
 
@@ -233,11 +232,11 @@ class ChatMessage(BaseModel):
 
 class ChatQuery(BaseModel):
     question: str = Field(min_length=1)
-    project_id: Optional[UUID] = None
+    project_id: UUID | None = None
 
 
 class ChatResponse(BaseModel):
     answer: str
-    sources: List[dict]
+    sources: list[dict]
     confidence: float
-    relevant_regulations: List[str]
+    relevant_regulations: list[str]

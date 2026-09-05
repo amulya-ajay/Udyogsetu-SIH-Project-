@@ -22,9 +22,10 @@ when it is empty (i.e. a freshly created table).
 
 import logging
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "0002"
 down_revision = "0001"

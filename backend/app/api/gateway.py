@@ -1,9 +1,7 @@
 """REST router over the government gateway (mock + adapters) and health."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
 from app.api.deps import require_officer
 from app.services.gateway_service import GatewayService
 

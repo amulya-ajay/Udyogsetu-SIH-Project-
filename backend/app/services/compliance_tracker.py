@@ -1,8 +1,8 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timedelta
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Approval, ComplianceItem, Project, approval_documents
 
@@ -18,7 +18,7 @@ class ComplianceTracker:
         self.db = db
     
     @staticmethod
-    def _as_uuid(value) -> Optional[UUID]:
+    def _as_uuid(value) -> UUID | None:
         """Coerce a string/UUID value to UUID, returning None when invalid."""
         try:
             return UUID(str(value))
@@ -140,7 +140,10 @@ class ComplianceTracker:
         
         if not project:
             return {"score": 0}
-        
+
+        from app.services.compliance import ComplianceService
+        await ComplianceService(self.db).ensure_compliance_items(project_uuid)
+
         # Get all approvals
         approvals_result = await self.db.execute(
             select(Approval).where(Approval.project_id == project_uuid)

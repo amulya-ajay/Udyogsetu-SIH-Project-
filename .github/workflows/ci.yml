@@ -48,7 +48,7 @@ jobs:
         working-directory: ./backend
         run: |
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio httpx
+          pip install -r requirements-dev.txt
 
       - name: Run backend tests
         working-directory: ./backend
@@ -114,7 +114,7 @@ jobs:
 
       - name: Lint frontend
         working-directory: ./frontend
-        run: npm run lint || echo "No lint script, skipping"
+        run: npm run lint
 
   docker-build:
     runs-on: ubuntu-latest

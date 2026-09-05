@@ -22,7 +22,7 @@ Terminal states: APPROVED, REJECTED, CANCELED.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.models import ApprovalStatus
 

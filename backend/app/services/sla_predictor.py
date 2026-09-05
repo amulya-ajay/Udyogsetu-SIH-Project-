@@ -14,7 +14,6 @@ from __future__ import annotations
 from app.models import Approval, ApprovalStatus
 from app.services.sla_engine import SlaEngine
 
-
 # Feature risk weights (department / approval-type specific experience).
 _DEPARTMENT_RISK = {
     "mpcb": 0.18,

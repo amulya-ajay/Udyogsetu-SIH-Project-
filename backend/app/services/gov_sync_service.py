@@ -13,7 +13,7 @@ officer dashboard can trigger and observe the sync without a cron daemon.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select

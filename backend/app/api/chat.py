@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import require_project_owner
 from app.core.database import get_db_session
 from app.core.security import get_current_user
-from app.api.deps import require_project_owner
 from app.schemas import ChatQuery
-from app.workflows.copilot_workflow import CopilotWorkflow
 from app.services.rag_service import RAGService
+from app.workflows.copilot_workflow import CopilotWorkflow
 
 router = APIRouter(prefix="/chat", tags=["regulatory-copilot"])
 

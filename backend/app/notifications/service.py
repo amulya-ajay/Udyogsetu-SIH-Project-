@@ -7,7 +7,7 @@ alerts, renewals, compliance due dates) and exposes unread/read management.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -105,8 +105,8 @@ class NotificationService:
             result = await self.db.execute(select(Project).where(Project.id == approval.project_id))
             project = result.scalar_one_or_none()
             owner_id = project.user_id if project else None
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001 - owner lookup must not raise out of the trigger
+            logger.debug("Owner lookup failed for approval %s: %s", approval.id, exc)
         if not owner_id:
             return
 
@@ -141,5 +141,5 @@ class NotificationService:
             if not submitted:
                 continue
             elapsed = (datetime.utcnow() - submitted).days
-            if elapsed >= est and est > 0:
+            if elapsed >= est > 0:
                 await self.notify_approval_status(a)

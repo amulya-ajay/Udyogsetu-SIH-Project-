@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
 from app.api.deps import require_auth
+from app.core.database import get_db_session
 from app.models import Scheme
 
 router = APIRouter(prefix="/schemes", tags=["schemes"])
@@ -16,7 +16,7 @@ async def list_schemes(
     """List all available schemes"""
     result = await db.execute(
         select(Scheme)
-        .where(Scheme.is_active == True)  # noqa: E712
+        .where(Scheme.is_active == True)
         .order_by(Scheme.name)
     )
     schemes = result.scalars().all()

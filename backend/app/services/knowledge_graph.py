@@ -16,13 +16,21 @@ Relationship types follow the spec:
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+logger = logging.getLogger(__name__)
+
 from app.models import (
-    Project, Approval, Document, ComplianceItem, ApprovalRule, KnowledgeDocument,
+    Approval,
+    ApprovalRule,
+    ComplianceItem,
+    Document,
+    KnowledgeDocument,
+    Project,
 )
 from app.services.incentive_matcher import IncentiveMatcher
 
@@ -139,8 +147,8 @@ class KnowledgeGraphService:
                 relationships.append({
                     "source": "project", "target": scheme_id, "type": "PROJECT_ELIGIBLE_FOR_SCHEME",
                 })
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - scheme enrichment is best-effort
+            logger.debug("Scheme matching skipped for knowledge graph: %s", exc)
 
         stats = {
             "total_nodes": len(nodes),

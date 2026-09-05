@@ -1,11 +1,10 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
-from datetime import datetime
-import json
 
-from app.models import Project, Approval, ApprovalRule, ApprovalStatus
-from app.core.database import AsyncSessionLocal
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Approval, ApprovalRule, ApprovalStatus, Project
+
 
 class ApprovalEngine:
     """Intelligent approval determination engine"""

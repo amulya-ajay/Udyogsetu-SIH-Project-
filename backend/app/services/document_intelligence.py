@@ -15,8 +15,8 @@ import re
 from datetime import datetime
 from typing import Any
 
-from app.ai.ocr import OCRProviderFactory
 from app.ai.embeddings import EmbeddingProviderFactory
+from app.ai.ocr import OCRProviderFactory
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +25,16 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DOCUMENT_CLASSIFIERS = [
-    ("PAN CARD", re.compile(r"permanent\s*account\s*number|\bpan\b", re.I)),
-    ("GST REGISTRATION", re.compile(r"good.?s?\s*and\s*services\s*tax|\bgstin?\b", re.I)),
-    ("GST RETURN", re.compile(r"gst\s*return|\bgstr-?\d?\b", re.I)),
-    ("SHOPS & ESTABLISHMENT", re.compile(r"shops?\s*(and|&)\s*establishment", re.I)),
-    ("FACTORY LICENSE", re.compile(r"factory\s*(license|licence)", re.I)),
-    ("BOILER REGISTRATION", re.compile(r"boiler", re.I)),
-    ("MPCB CONSENT", re.compile(r"consent\s*(to\s*establish|to\s*operate)|pollution.?control\s*board", re.I)),
-    ("FIRE NOC", re.compile(r"fire\s*(noc|no\s*objection|services)", re.I)),
-    ("LAND DOCUMENT", re.compile(r"(land|property|title\s*deed|lease\s*deed)", re.I)),
-    ("INCORPORATION CERTIFICATE", re.compile(r"incorporation", re.I)),
+    ("PAN CARD", re.compile(r"permanent\s*account\s*number|\bpan\b", re.IGNORECASE)),
+    ("GST REGISTRATION", re.compile(r"good.?s?\s*and\s*services\s*tax|\bgstin?\b", re.IGNORECASE)),
+    ("GST RETURN", re.compile(r"gst\s*return|\bgstr-?\d?\b", re.IGNORECASE)),
+    ("SHOPS & ESTABLISHMENT", re.compile(r"shops?\s*(and|&)\s*establishment", re.IGNORECASE)),
+    ("FACTORY LICENSE", re.compile(r"factory\s*(license|licence)", re.IGNORECASE)),
+    ("BOILER REGISTRATION", re.compile(r"boiler", re.IGNORECASE)),
+    ("MPCB CONSENT", re.compile(r"consent\s*(to\s*establish|to\s*operate)|pollution.?control\s*board", re.IGNORECASE)),
+    ("FIRE NOC", re.compile(r"fire\s*(noc|no\s*objection|services)", re.IGNORECASE)),
+    ("LAND DOCUMENT", re.compile(r"(land|property|title\s*deed|lease\s*deed)", re.IGNORECASE)),
+    ("INCORPORATION CERTIFICATE", re.compile(r"incorporation", re.IGNORECASE)),
 ]
 
 PAN_RE = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b")
@@ -78,7 +78,8 @@ class DocumentIntelligenceService:
     def _extract_pdf(self, file_path: str) -> str:
         try:
             import fitz  # PyMuPDF
-        except Exception:
+        except ImportError:
+            logger.debug("PyMuPDF not installed; PDF extraction unavailable")
             return ""
         try:
             text_parts = []
@@ -99,19 +100,20 @@ class DocumentIntelligenceService:
                             pix = fitz.Pixmap(fitz.csRGB, pix)
                         images.append(pix.tobytes("png"))
             return "\n".join(self.ocr.image_to_text(b) for b in images) if images else ""
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - corrupt/malformed PDFs fail open
             logger.warning("PDF text extraction failed: %s", exc)
             return ""
 
     def _extract_docx(self, file_path: str) -> str:
         try:
             from docx import Document as DocxDocument
-        except Exception:
+        except ImportError:
+            logger.debug("python-docx not installed; DOCX extraction unavailable")
             return ""
         try:
             doc = DocxDocument(file_path)
             return "\n".join(p.text for p in doc.paragraphs)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - corrupt/incompatible files fail open
             logger.warning("DOCX text extraction failed: %s", exc)
             return ""
 
@@ -119,7 +121,7 @@ class DocumentIntelligenceService:
         try:
             with open(file_path, "rb") as f:
                 return self.ocr.image_to_text(f.read())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - corrupt images fail open
             logger.warning("Image OCR failed: %s", exc)
             return ""
 
@@ -127,7 +129,8 @@ class DocumentIntelligenceService:
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - fail-open on unreadable sources
+            logger.debug("Text read failed for %s: %s", file_path, exc)
             return ""
 
     # ------------------------------------------------------------------
@@ -178,7 +181,7 @@ class DocumentIntelligenceService:
         return None
 
     def _find_number(self, text: str) -> str | None:
-        for mobj in re.finditer(r"(reg(istration)?.?no|reg\s*no|certificate\s*no)[\s:]*([A-Z0-9\-\/]+)", text or "", re.I):
+        for mobj in re.finditer(r"(reg(istration)?.?no|reg\s*no|certificate\s*no)[\s:]*([A-Z0-9\-\/]+)", text or "", re.IGNORECASE):
             return mobj.group(3)
         found = ALPHA_NUM_RE.findall(text or "")
         return found[0] if found else None
@@ -290,7 +293,6 @@ class CrossDocumentValidator:
 
         names = [{"id": d["id"], "name": d["extracted_fields"].get("name")} for d in docs if d["extracted_fields"].get("name")]
         pans = {d["extracted_fields"].get("pan") for d in docs if d["extracted_fields"].get("pan")}
-        gstins = {d["extracted_fields"].get("gstin") for d in docs if d["extracted_fields"].get("gstin")}
         addresses = [{"id": d["id"], "address": d["extracted_fields"].get("address")} for d in docs if d["extracted_fields"].get("address")]
 
         # Company-name consistency across documents.

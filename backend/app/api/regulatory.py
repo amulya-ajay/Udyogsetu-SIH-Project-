@@ -1,16 +1,17 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from pydantic import BaseModel
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import require_project_owner
 from app.core.database import get_db_session
 from app.core.security import get_current_user
-from app.api.deps import require_project_owner
-from app.rag.pipeline import RAGPipeline
 from app.integrations.government_adapters import GovernmentAPIGateway
 from app.models import Approval
+from app.rag.pipeline import RAGPipeline
 
 router = APIRouter(prefix="/regulatory", tags=["regulatory"])
 

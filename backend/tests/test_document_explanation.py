@@ -1,6 +1,5 @@
 """Tests for AI document explanations (spec §16)."""
 
-import pytest
 
 from app.services.document_explanation import DocumentExplanationService
 

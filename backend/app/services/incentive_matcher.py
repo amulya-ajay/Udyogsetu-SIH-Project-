@@ -1,9 +1,11 @@
 import re
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models import Scheme
+
 
 class IncentiveMatcher:
     """Match projects to applicable government incentive schemes"""
@@ -16,7 +18,7 @@ class IncentiveMatcher:
         Find matching schemes for a project based on criteria
         """
         result = await self.db.execute(
-            select(Scheme).where(Scheme.is_active == True)  # noqa: E712
+            select(Scheme).where(Scheme.is_active == True)
         )
         all_schemes = result.scalars().all()
 
@@ -56,9 +58,7 @@ class IncentiveMatcher:
         industry = (project_data.get("industry") or project_data.get("sector") or "").lower()
         sector = (scheme.sector or "").lower()
 
-        if sector and sector in industry:
-            score += 30
-        elif sector == "all":
+        if sector and sector in industry or sector == "all":
             score += 30
 
         state = (project_data.get("state") or project_data.get("location") or "").lower()
@@ -69,20 +69,19 @@ class IncentiveMatcher:
             score += 25
 
         investment = project_data.get("investment_amount")
-        if isinstance(investment, (int, float)):
-            if scheme.min_investment and investment >= scheme.min_investment:
-                score += 20
-            elif scheme.max_investment and investment <= scheme.max_investment:
-                score += 20
-            elif not scheme.min_investment and not scheme.max_investment:
-                score += 20
+        if isinstance(investment, (int, float)) and (
+            (scheme.min_investment and investment >= scheme.min_investment)
+            or (scheme.max_investment and investment <= scheme.max_investment)
+            or (not scheme.min_investment and not scheme.max_investment)
+        ):
+            score += 20
 
         employees = project_data.get("employees")
-        if isinstance(employees, (int, float)):
-            if scheme.employee_requirement and employees >= scheme.employee_requirement:
-                score += 15
-            elif not scheme.employee_requirement:
-                score += 15
+        if isinstance(employees, (int, float)) and (
+            (scheme.employee_requirement and employees >= scheme.employee_requirement)
+            or (not scheme.employee_requirement)
+        ):
+            score += 15
 
         if project_data.get("is_women_led") or project_data.get("is_sc_st_owned"):
             score += 10

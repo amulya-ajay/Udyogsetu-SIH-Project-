@@ -19,8 +19,15 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Approval, ApprovalStatus, ApprovalRule, Document, GovernmentService, Project
 from app.audit.logging import log_audit
+from app.models import (
+    Approval,
+    ApprovalRule,
+    ApprovalStatus,
+    Document,
+    GovernmentService,
+    Project,
+)
 from app.rules.approval_engine import ApprovalEngine
 
 logger = logging.getLogger(__name__)

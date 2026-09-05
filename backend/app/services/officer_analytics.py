@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Approval
@@ -67,9 +67,8 @@ class OfficerAnalyticsService:
                 entry["pending"] += 1
             sla = a.estimated_processing_days or 60
             base = a.submitted_at or a.created_at
-            if a.status.value not in ("APPROVED", "REJECTED") and base:
-                if (datetime.now(timezone.utc) - _as_utc(base)).days > sla:
-                    entry["sla_breaches"] += 1
+            if a.status.value not in ("APPROVED", "REJECTED") and base and (datetime.now(timezone.utc) - _as_utc(base)).days > sla:
+                entry["sla_breaches"] += 1
 
         result = []
         for entry in by_dept.values():

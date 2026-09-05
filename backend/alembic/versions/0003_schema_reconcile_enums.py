@@ -14,9 +14,10 @@ NOT NULL constraint, matching exactly what Base.metadata (create_all) would
 produce.
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "0003"
 down_revision = "0002"

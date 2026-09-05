@@ -14,10 +14,9 @@ original findings so the UI can show "what" plus "why it matters / what to do".
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
-from app.ai.llm_provider import LLMProviderFactory, generate_with_fallback
+from app.ai.llm_provider import LLMProviderFactory
 
 logger = logging.getLogger(__name__)
 

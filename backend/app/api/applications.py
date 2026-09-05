@@ -1,13 +1,16 @@
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+import logging
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.core.security import get_current_user
 from app.models import Approval, ApprovalStatus, Project
 from app.services.project import ProjectService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -166,7 +169,7 @@ async def transition_application(
     if not target:
         raise HTTPException(status_code=400, detail="Missing 'to_status'")
 
-    from app.services.approval_workflow import ApprovalWorkflowEngine, TransitionError
+    from app.services.approval_workflow import ApprovalWorkflowEngine
     engine = ApprovalWorkflowEngine(user.get("role", "ENTREPRENEUR"))
     try:
         requested_status = ApprovalStatus[target.upper()]
@@ -196,7 +199,8 @@ async def transition_application(
                 project_id=approval.project_id,
                 reference_id=str(approval.id),
             )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - side-channel must not break the transition
+        logger.warning("Owner notification failed after decision: %s", exc)
         db.rollback()
 
     return {**_application_payload(approval, None), "transition": decision.to_dict()}
@@ -223,9 +227,9 @@ async def submit_application(
     # Track the application with the government integration layer (spec §19)
     # so live-status sync polls it. Uses the mock submission id by default.
     try:
-        from app.services.gov_sync_service import GovSyncService
-        from app.services.gateway_service import GatewayService
         from app.integrations.government_adapters import system_for_department
+        from app.services.gateway_service import GatewayService
+        from app.services.gov_sync_service import GovSyncService
         system = system_for_department(approval.department) or "maitri"
         submission = await GatewayService().submit(system, {"sla_days": approval.estimated_processing_days or 30})
         submission_data = (submission or {}).get("data") if isinstance((submission or {}).get("data"), dict) else {}
@@ -235,11 +239,12 @@ async def submit_application(
         )
         if gov_app_id:
             await GovSyncService(db).track(approval, system, gov_app_id)
-    except Exception as exc:  # noqa: BLE001
-        pass  # tracking is best-effort; the application was already submitted
+    except Exception as e:  # noqa: BLE001 - tracking is best-effort; the application was already submitted
+        logger.warning("Government tracking failed for submitted application %s: %s", approval.id, e)
+        db.rollback()
 
-    from app.notifications.service import NotificationService
     from app.models import Project
+    from app.notifications.service import NotificationService
     try:
         result = await db.execute(select(Project).where(Project.id == approval.project_id))
         project = result.scalar_one_or_none()
@@ -254,7 +259,8 @@ async def submit_application(
                 project_id=approval.project_id,
                 reference_id=str(approval.id),
             )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - side-channel must not break the submission
+        logger.warning("Owner notification failed after submission: %s", exc)
         db.rollback()
 
     return _application_payload(approval, None)

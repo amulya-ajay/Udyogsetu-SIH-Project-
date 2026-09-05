@@ -1,11 +1,15 @@
-from fastapi import APIRouter, File, UploadFile, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 from uuid import UUID
 
-from app.core.database import get_db_session
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import get_owned_document, require_project_owner
+from app.core.database import get_db_session
 from app.schemas import DocumentResponse
 from app.services.document_processor import DocumentProcessorService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -84,8 +88,8 @@ async def explain_project_documents(
     try:
         from app.services.ai_observability import AIObservability
         await AIObservability(db).log_event(request_type="document_explanation", project_id=project_id, success=True)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - telemetry must never break the response
+        logger.debug("AI observability event skipped: %s", exc)
     return {
         **cross,
         "explanation": explanation,

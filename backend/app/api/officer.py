@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
 from app.api.deps import require_officer
+from app.core.database import get_db_session
 from app.services.officer_analytics import OfficerAnalyticsService
 
 router = APIRouter(prefix="/officer", tags=["officer-analytics"])

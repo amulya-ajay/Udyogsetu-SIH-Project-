@@ -11,8 +11,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class BackgroundTaskManager:
                     job["status"] = JobStatus.COMPLETED
                     job["result"] = result
                     job["completed_at"] = iso_now()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.exception("Background job %s failed", job_id)
                 if job:
                     job["status"] = JobStatus.FAILED

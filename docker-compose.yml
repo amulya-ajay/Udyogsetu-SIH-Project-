@@ -43,7 +43,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       DEBUG: "false"
       ENVIRONMENT: ${ENVIRONMENT:-production}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set in the environment (see .env.example)}
       UPLOAD_DIRECTORY: /var/uploads
     ports:
       - "8000:8000"

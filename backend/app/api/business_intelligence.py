@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 from uuid import UUID
 
-from app.core.database import get_db_session
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import get_owned_approval, require_auth, require_project_owner
+from app.core.database import get_db_session
 from app.services.compliance_tracker import ComplianceTracker
 from app.services.incentive_matcher import IncentiveMatcher
 from app.services.scenario_simulator import ScenarioSimulator
@@ -117,8 +118,9 @@ async def simulate_location_change(
     owned: object = Depends(require_project_owner),
     db: AsyncSession = Depends(get_db_session),
 ):
-    from app.models import Project
     from sqlalchemy import select
+
+    from app.models import Project
 
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()

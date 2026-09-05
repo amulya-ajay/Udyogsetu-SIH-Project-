@@ -1,15 +1,13 @@
 """Tests for the RAG evaluation harness and regulatory versioning (spec §8, §9)."""
 
-import asyncio
 import json
 import os
 
 import pytest
 
-from app.rag.pipeline import RAGPipeline, _coerce_datetime
-from app.models import KnowledgeDocument, KnowledgeChunk
 from app.core.database import AsyncSessionLocal
-
+from app.models import KnowledgeChunk, KnowledgeDocument
+from app.rag.pipeline import RAGPipeline, _coerce_datetime
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 QUESTIONS_PATH = os.path.join(PROJECT_ROOT, "data", "rag_evaluation", "questions.json")

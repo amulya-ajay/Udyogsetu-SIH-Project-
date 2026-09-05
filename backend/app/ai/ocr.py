@@ -17,7 +17,7 @@ try:
     import pytesseract
     from PIL import Image
     _HAS_PYTESSERACT = True
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     _HAS_PYTESSERACT = False
 
 
@@ -45,7 +45,7 @@ class TesseractOCRProvider(OCRProvider):
             from io import BytesIO
             image = Image.open(BytesIO(image_bytes))
             return pytesseract.image_to_string(image)
-        except Exception as exc:  # pragma: no cover - depends on tesseract binary
+        except Exception as exc:  # noqa: BLE001 - depends on tesseract binary/OCR libs
             logger.warning("Tesseract OCR failed: %s", exc)
             return ""
 
@@ -72,8 +72,5 @@ class OCRProviderFactory:
     def create(cls, name: str | None = None) -> OCRProvider:
         name = (name or "tesseract").lower()
         if name == "tesseract" and _HAS_PYTESSERACT:
-            try:
-                return TesseractOCRProvider()
-            except Exception:  # pragma: no cover
-                pass
+            return TesseractOCRProvider()
         return MockOCRProvider()

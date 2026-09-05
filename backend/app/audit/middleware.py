@@ -8,6 +8,7 @@ the API: POST/PUT/PATCH/DELETE. Read-only GETs are not recorded.
 from __future__ import annotations
 
 import logging
+
 from fastapi import Request
 
 from app.core.security import verify_jwt

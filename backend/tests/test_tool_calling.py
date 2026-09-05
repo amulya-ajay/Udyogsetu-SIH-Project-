@@ -3,12 +3,11 @@
 import uuid
 
 import pytest
-from sqlalchemy import select
 
-from app.ai.tools import ToolCallingService, ToolCallingError, ToolRegistry, Tool
-from app.services.copilot_tools import get_copilot_tools
-from app.models import Project, Approval
+from app.ai.tools import ToolCallingError, ToolCallingService, ToolRegistry
 from app.core.database import AsyncSessionLocal
+from app.models import Approval, Project
+from app.services.copilot_tools import get_copilot_tools
 
 USER_UUID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 

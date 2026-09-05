@@ -8,13 +8,18 @@ existing application APIs and workflow engine.
 
 from __future__ import annotations
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_owned_approval, get_owned_project, require_admin, require_auth
+from app.api.deps import (
+    get_owned_approval,
+    get_owned_project,
+    require_admin,
+    require_auth,
+)
 from app.core.database import get_db_session
 from app.models import Document
 from app.schemas import (
@@ -25,7 +30,6 @@ from app.schemas import (
     GovernmentServiceResponse,
 )
 from app.services.explore_service import ExploreService
-from sqlalchemy import select
 
 router = APIRouter(prefix="/explore", tags=["explore"])
 
@@ -39,11 +43,11 @@ async def _resolve_service(db: AsyncSession, service_id: str):
 
 @router.get("/services", response_model=list[GovernmentServiceResponse])
 async def list_services(
-    q: Optional[str] = None,
-    category: Optional[str] = None,
-    authority: Optional[str] = None,
-    application_mode: Optional[str] = None,
-    service_type: Optional[str] = None,
+    q: str | None = None,
+    category: str | None = None,
+    authority: str | None = None,
+    application_mode: str | None = None,
+    service_type: str | None = None,
     limit: int = 100,
     user: dict = Depends(require_auth),
     db: AsyncSession = Depends(get_db_session),
@@ -77,7 +81,7 @@ async def get_service(
 @router.get("/services/{service_id}/documents")
 async def service_documents(
     service_id: str,
-    project_id: Optional[UUID] = None,
+    project_id: UUID | None = None,
     user: dict = Depends(require_auth),
     db: AsyncSession = Depends(get_db_session),
 ):

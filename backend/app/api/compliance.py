@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from app.core.database import get_db_session
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import require_project_owner
+from app.core.database import get_db_session
 from app.schemas import ComplianceItemResponse
 from app.services.compliance import ComplianceService
 
@@ -28,5 +29,6 @@ async def get_compliance_items(
 ):
     """Get compliance items for a project"""
     service = ComplianceService(db)
+    await service.ensure_compliance_items(project_id)
     items = await service.get_compliance_items(project_id)
     return items

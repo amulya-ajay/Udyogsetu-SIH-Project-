@@ -6,10 +6,11 @@ JWT-integrity protections hold.
 """
 
 import uuid
+
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.core.security import create_access_token
+from app.main import app
 
 client = TestClient(app)
 
@@ -108,11 +109,11 @@ class TestOfficerEndpointsRoleRestricted:
 
     def test_officer_overview_allows_officer(self):
         # Provision an OFFICER directly in the DB (only trusted path may create one).
-        from app.core.database import AsyncSessionLocal
-        from app.models import User, UserRole
-        from app.core.security import hash_password
-        from sqlalchemy import select
         import asyncio
+
+        from app.core.database import AsyncSessionLocal
+        from app.core.security import hash_password
+        from app.models import User, UserRole
 
         async def _provision_officer_and_call():
             async with AsyncSessionLocal() as db:
@@ -180,7 +181,8 @@ class TestJwtTampering:
         token = _token_for(ent["email"])
         parts = token.split(".")
         # Replace the payload with an ADMIN role but keep the original signature.
-        import base64, json as _json
+        import base64
+        import json as _json
         forged_payload = base64.urlsafe_b64encode(
             _json.dumps({"role": "ADMIN", "sub": "0"}).encode()
         ).rstrip(b"=").decode()

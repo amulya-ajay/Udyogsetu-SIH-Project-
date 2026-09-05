@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_owned_project
 from app.core.database import get_db_session
 from app.core.security import get_current_user
-from app.api.deps import get_owned_project
-from app.schemas import ProjectOnboarding, ProjectResponse, ApprovalResponse
-from app.services.project import ProjectService, UPDATABLE_FIELDS
 from app.rules.approval_engine import ApprovalEngine
+from app.schemas import ApprovalResponse, ProjectOnboarding, ProjectResponse
+from app.services.project import UPDATABLE_FIELDS, ProjectService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 

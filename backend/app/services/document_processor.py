@@ -1,14 +1,21 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from uuid import UUID
-from fastapi import UploadFile
+import asyncio
 import os
 import re
 import uuid
+from uuid import UUID
+
+from fastapi import UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models import Document, DocumentStatus
 from app.services.document_intelligence import DocumentIntelligenceService
+
+
+def _write_bytes(file_path: str, contents: bytes) -> None:
+    with open(file_path, "wb") as f:
+        f.write(contents)
 
 ALLOWED_TYPES = {
     "application/pdf": {".pdf"},
@@ -64,8 +71,7 @@ class DocumentProcessorService:
         stored_name = f"{uuid.uuid4().hex}_{safe_name}"
         file_path = os.path.join(upload_dir, stored_name)
 
-        with open(file_path, "wb") as f:
-            f.write(contents)
+        await asyncio.to_thread(_write_bytes, file_path, contents)
 
         # Run document intelligence: extract text, OCR, classify, extract fields.
         intelligence = DocumentIntelligenceService(self.db)

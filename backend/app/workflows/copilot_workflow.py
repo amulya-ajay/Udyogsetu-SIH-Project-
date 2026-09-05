@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from uuid import UUID
 
-from app.services.rag_service import RAGService
 from app.services.gateway_service import GatewayService
+from app.services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +74,7 @@ class CopilotWorkflow:
             if intent == "general" and project_id:
                 return await self._general_flow(question, project_id)
             return await self._regulation_flow(question, project_id, intent)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.exception("Copilot workflow routing failed")
             return {
                 "intent": intent,
@@ -93,9 +92,9 @@ class CopilotWorkflow:
         each chosen tool is executed against the allow-listed registry and the
         results are folded into a grounded, deterministic answer.
         """
-        from app.services.copilot_tools import get_copilot_tools
-        from app.ai.tools import ToolCallingService
         from app.ai.llm_provider import LLMProviderFactory
+        from app.ai.tools import ToolCallingService
+        from app.services.copilot_tools import get_copilot_tools
 
         registry = get_copilot_tools()
         schemas = registry.list()
@@ -103,7 +102,7 @@ class CopilotWorkflow:
         prompt = (
             "Given the user question and project id, choose which of these tools "
             "to call to best answer it. Respond ONLY with a JSON array of "
-            f"{{'tool': <name>, 'args': {{...}}}}, using project_id {str(project_id)} "
+            f"{{'tool': <name>, 'args': {{...}}}}, using project_id {project_id!s} "
             "where needed. Empty array [] if no tool is relevant.\n\n"
             f"TOOLS:\n{schema_json}\n\nQUESTION: {question}"
         )
@@ -117,7 +116,7 @@ class CopilotWorkflow:
             calls = raw.get("tool_calls") or raw.get("calls") or []
             if isinstance(raw, list):
                 calls = raw
-        except Exception:
+        except Exception:  # noqa: BLE001 - invalid/empty tool calls fall back to none
             calls = []
 
         service = ToolCallingService(registry, self.db)
@@ -137,9 +136,10 @@ class CopilotWorkflow:
             "Using ONLY the tool results above, write a concise, factual answer. "
             "If no tool result is relevant, say you need more specific details."
         )
+        import time as _time
+
         from app.ai.llm_provider import generate_with_fallback
         from app.services.ai_observability import AIObservability
-        import time as _time
         obs = AIObservability(self.db)
         start = _time.perf_counter()
         try:
@@ -148,16 +148,16 @@ class CopilotWorkflow:
                 answer_prompt,
                 temperature=0.2,
             )
-        except Exception:
+        except Exception:  # re-raise after logging the observability failure
             try:
                 await obs.log_event(request_type="copilot_general", latency_ms=int((_time.perf_counter() - start) * 1000), success=False, error_kind="generation_failed")
-            except Exception:
-                pass
+            except Exception as obs_err:  # noqa: BLE001 - telemetry write must stay fire-and-forget
+                logger.debug("AI observability failed event skipped: %s", obs_err)
             raise
         try:
             await obs.log_event(request_type="copilot_general", latency_ms=int((_time.perf_counter() - start) * 1000), success=True)
-        except Exception:
-            pass
+        except Exception as obs_err2:  # noqa: BLE001 - telemetry write must stay fire-and-forget
+            logger.debug("AI observability success event skipped: %s", obs_err2)
         return {
             "intent": "general",
             "engine": "tools",
@@ -203,6 +203,7 @@ class CopilotWorkflow:
 
     async def _status_flow(self, question: str, project_id: UUID, intent: str) -> dict:
         from sqlalchemy import select
+
         from app.models import Approval
         result = await self.db.execute(
             select(Approval).where(Approval.project_id == project_id)

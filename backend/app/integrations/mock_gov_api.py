@@ -9,10 +9,8 @@ swap the backend of these endpoints without changing the API shape.
 
 from __future__ import annotations
 
-import json
 import logging
 import random
-import time
 import uuid
 from datetime import datetime, timedelta
 

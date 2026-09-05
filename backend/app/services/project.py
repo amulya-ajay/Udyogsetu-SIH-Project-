@@ -1,9 +1,10 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
-from app.models import Project, Approval, User
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Approval, Project
 from app.schemas import ProjectOnboarding
 
 # Fields an authenticated owner is allowed to update on their own project.
@@ -22,7 +23,7 @@ class ProjectService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def create_project(self, project_data: ProjectOnboarding, user_id: UUID = None) -> Project:
+    async def create_project(self, project_data: ProjectOnboarding, user_id: UUID | None = None) -> Project:
         """Create a new project from onboarding data"""
         project = Project(
             user_id=user_id or UUID("00000000-0000-0000-0000-000000000000"),

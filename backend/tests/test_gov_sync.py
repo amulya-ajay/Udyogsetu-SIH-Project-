@@ -4,11 +4,10 @@ resolution (spec §20)."""
 import uuid
 from datetime import datetime
 
-import pytest
 from sqlalchemy import select
 
-from app.models import Project, Approval, GovernmentApplication
 from app.core.database import AsyncSessionLocal
+from app.models import Approval, GovernmentApplication, Project
 from app.services.gov_sync_service import GovSyncService
 from app.services.query_resolution import QueryResolutionService
 
@@ -42,7 +41,7 @@ async def _make_project_and_approval(db):
 
 async def test_track_government_application():
     async with AsyncSessionLocal() as db:
-        project, approval = await _make_project_and_approval(db)
+        _project, approval = await _make_project_and_approval(db)
         record = await GovSyncService(db).track(approval, "mpcb", "MPCB-123456")
         assert record.system == "mpcb"
         assert record.government_application_id == "MPCB-123456"
@@ -57,10 +56,9 @@ async def test_track_government_application():
 
 
 async def test_sync_one_updates_approval_status():
-    from app.services.gateway_service import GatewayService
     async with AsyncSessionLocal() as db:
-        project, approval = await _make_project_and_approval(db)
-        await GovSyncService(db).track(approval, "mpcb", "MPCB-777777")
+        _project, approval = await _make_project_and_approval(db)
+        record = await GovSyncService(db).track(approval, "mpcb", "MPCB-777777")
         result = await db.execute(
             select(GovernmentApplication).where(GovernmentApplication.approval_id == approval.id)
         )
@@ -70,9 +68,8 @@ async def test_sync_one_updates_approval_status():
 
 
 async def test_query_resolution_returns_explanation():
-    from app.services.gateway_service import GatewayService
     async with AsyncSessionLocal() as db:
-        project, approval = await _make_project_and_approval(db)
+        _project, approval = await _make_project_and_approval(db)
         record = await GovSyncService(db).track(approval, "mpcb", "MPCB-555000")
         record.raw_response = {"data": {"query": "Please provide ETP capacity details and water meter reading."}}
         await db.commit()

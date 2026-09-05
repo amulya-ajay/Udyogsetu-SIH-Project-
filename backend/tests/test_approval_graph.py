@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from app.models import ApprovalRule, Approval, User, Project
+from app.models import Approval, ApprovalRule, Project, User
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ async def project_with_rules(db_session):
 async def test_graph_builds_nodes_and_reports_duration(db_session, project_with_rules):
     from app.services.approval_graph import ApprovalGraphService
 
-    user, project = project_with_rules
+    _user, project = project_with_rules
 
     r1 = ApprovalRule(
         id=uuid.UUID("10000000-0000-0000-0000-000000000001"),
@@ -74,7 +74,7 @@ async def test_graph_builds_nodes_and_reports_duration(db_session, project_with_
 async def test_graph_handles_no_approvals(db_session, project_with_rules):
     from app.services.approval_graph import ApprovalGraphService
 
-    user, project = project_with_rules
+    _user, project = project_with_rules
     await db_session.commit()
 
     svc = ApprovalGraphService(db_session)

@@ -18,7 +18,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.ai.tools import Tool, ToolRegistry
-from app.models import Approval, ComplianceItem, Document, Project, Scheme
+from app.models import Approval, ComplianceItem, Document, Project
 
 
 def _project(obj) -> dict:

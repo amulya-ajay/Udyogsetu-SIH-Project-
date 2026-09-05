@@ -7,13 +7,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
 
-from app.core.database import get_db_session
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import require_officer
+from app.core.database import get_db_session
 from app.core.security import get_current_user
 from app.models import Approval, Project
 from app.services.gov_sync_service import GovSyncService

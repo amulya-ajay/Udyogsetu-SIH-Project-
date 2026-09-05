@@ -1,5 +1,6 @@
 import logging
 import uuid as uuid_mod
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AuditLog
@@ -20,8 +21,8 @@ async def log_audit(
     action: str,
     resource_type: str,
     resource_id: str,
-    details: dict = None,
-    ip_address: str = None,
+    details: dict | None = None,
+    ip_address: str | None = None,
 ):
     # resource_id is a UUID column; tolerate arbitrary path segments.
     parsed_id = None

@@ -12,9 +12,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.main import app
-from app.models import Approval, ApprovalRule, GovernmentService, User, UserRole
 from app.core.security import hash_password
+from app.main import app
+from app.models import ApprovalRule, GovernmentService, User, UserRole
 
 client = TestClient(app)
 

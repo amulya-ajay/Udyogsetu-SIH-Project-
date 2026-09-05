@@ -7,12 +7,14 @@ documents, auth tokens) is never recorded.
 
 from __future__ import annotations
 
+import logging
 import time
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AIEventLog
+
+logger = logging.getLogger(__name__)
 
 
 class AIObservability:
@@ -112,6 +114,6 @@ class timed_ai_event:
                     )
 
                 asyncio.create_task(_write())
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - telemetry must never raise
+                logger.debug("Fire-and-forget observability task could not be scheduled: %s", exc)
         return False  # propagate the original exception

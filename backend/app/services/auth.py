@@ -1,11 +1,12 @@
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
 
-from app.models import User, UserRole
-from app.schemas import UserRegister, UserLogin, TokenResponse
-from app.core.security import hash_password, verify_password, create_access_token
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import create_access_token, hash_password, verify_password
+from app.models import User
+from app.schemas import TokenResponse, UserLogin, UserRegister
 
 logger = logging.getLogger(__name__)
 

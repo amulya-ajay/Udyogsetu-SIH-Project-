@@ -71,7 +71,6 @@ class GatewayService:
                 await asyncio.sleep(0.2 * attempt)
 
     def _record_health(self, system: str, ok: bool, latency: float):
-        now = time.time()
         entry = self._health.setdefault(system, {"ok": 0, "total": 0, "latency": 0.0})
         entry["total"] += 1
         entry["ok"] += int(ok)
@@ -88,7 +87,7 @@ class GatewayService:
         for system in ("maitri", "mpcb", "midc", "boiler", "fire", "labour", "gst"):
             # Probe availability cheaply.
             try:
-                env = await asyncio.wait_for(self.mock.list_services(system), timeout=5)
+                await asyncio.wait_for(self.mock.list_services(system), timeout=5)
                 self._record_health(system, ok=True, latency=0.3)
             except Exception:  # noqa: BLE001
                 self._record_health(system, ok=False, latency=1.0)

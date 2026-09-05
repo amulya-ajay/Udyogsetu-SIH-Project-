@@ -1,9 +1,8 @@
 import logging
-import time
 
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 
@@ -40,7 +39,7 @@ class RateLimiter:
             await self._client.ping()
             self._enabled = True
             logger.info("Rate limiter enabled (%s req/min)", self.per_minute)
-        except Exception as exc:  # pragma: no cover - depends on infra
+        except Exception as exc:  # noqa: BLE001 - depends on infra; fail open
             logger.warning("Redis unavailable; rate limiting disabled: %s", exc)
             self._client = None
 
@@ -54,7 +53,8 @@ class RateLimiter:
             if current == 1:
                 await self._client.expire(bucket, 60)
             return current <= self.per_minute
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - fail open when Redis is flaky
+            logger.warning("Rate limit check failed; allowing request: %s", exc)
             return True
 
 

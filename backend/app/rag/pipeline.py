@@ -1,11 +1,14 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from uuid import UUID
-from datetime import datetime
-import json
+import logging
 import time
+from datetime import datetime
+from uuid import UUID
 
-from app.models import KnowledgeDocument, KnowledgeChunk
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import KnowledgeChunk, KnowledgeDocument
+
+logger = logging.getLogger(__name__)
 
 
 def _coerce_datetime(value):
@@ -79,7 +82,7 @@ class RAGPipeline:
             from app.ai.embeddings import EmbeddingProviderFactory
             provider = EmbeddingProviderFactory.create()
             embeddings = provider.embed(chunks)
-        except Exception:
+        except Exception:  # noqa: BLE001 - embeddings are a best-effort enhancement
             embeddings = None
         
         for i, chunk_text in enumerate(chunks):
@@ -117,10 +120,9 @@ class RAGPipeline:
             if current_length + len(words) > chunk_size:
                 if current_chunk:
                     chunks.append('. '.join(current_chunk) + '.')
-                
-                # Add overlap
-                overlap_words = overlap
-                if len(current_chunk) > 0:
+
+                # Overlap: keep the previous sentence to preserve continuity.
+                if current_chunk:
                     last_sentence = current_chunk[-1]
                     current_chunk = [last_sentence]
                     current_length = len(last_sentence.split())
@@ -172,7 +174,7 @@ class RAGPipeline:
             provider = EmbeddingProviderFactory.create()
             if provider is not None:
                 query_vector = provider.embed_one(query)
-        except Exception:
+        except Exception:  # noqa: BLE001 - embeddings are a best-effort enhancement
             query_vector = None
 
         def _cosine(a, b):
@@ -270,16 +272,16 @@ ANSWER:"""
                 answer = await generate_with_fallback(system_prompt, prompt, temperature=0.2)
             else:
                 answer = await llm_provider.generate(system_prompt, prompt, temperature=0.2)
-        except Exception:
+        except Exception:  # re-raise after logging the observability failure
             try:
                 await obs.log_event(request_type="regulatory_rag", latency_ms=int((time.perf_counter() - start) * 1000), success=False, error_kind="generation_failed")
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - telemetry write must stay fire-and-forget
+                logger.debug("AI observability failed event skipped: %s", e)
             raise
         try:
             await obs.log_event(request_type="regulatory_rag", latency_ms=int((time.perf_counter() - start) * 1000), success=True)
-        except Exception:
-            pass
+        except Exception as e2:  # noqa: BLE001 - telemetry write must stay fire-and-forget
+            logger.debug("AI observability success event skipped: %s", e2)
 
         # Extract sources
         sources = await self._get_source_documents(

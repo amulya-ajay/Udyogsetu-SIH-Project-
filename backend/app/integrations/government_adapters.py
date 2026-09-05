@@ -1,9 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict
-from uuid import UUID
-import json
 import random
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+
 
 class GovernmentIntegrationAdapter(ABC):
     """Base class for government system integrations"""
@@ -11,22 +9,18 @@ class GovernmentIntegrationAdapter(ABC):
     @abstractmethod
     async def authenticate(self):
         """Authenticate with government system"""
-        pass
     
     @abstractmethod
     async def get_services(self) -> list[dict]:
         """Get available services"""
-        pass
     
     @abstractmethod
     async def get_application_status(self, application_id: str) -> dict:
         """Get application status"""
-        pass
     
     @abstractmethod
     async def submit_application(self, application_data: dict) -> dict:
         """Submit application"""
-        pass
 
 
 class MaitriAdapter(GovernmentIntegrationAdapter):
@@ -244,7 +238,7 @@ class GovernmentAPIGateway:
         for system, app_id in application_ids.items():
             try:
                 results[system] = await self.get_application_status(system, app_id)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-system status must not block others
                 results[system] = {"error": str(e)}
         
         return results

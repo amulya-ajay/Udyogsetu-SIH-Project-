@@ -4,8 +4,7 @@ import uuid
 
 import pytest
 
-from app.models import Approval, User, Project
-from app.models import ApprovalStatus
+from app.models import Approval, ApprovalStatus, Project, User
 
 
 @pytest.fixture

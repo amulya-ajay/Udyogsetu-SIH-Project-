@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 from app.core.config import settings
 
@@ -64,8 +65,7 @@ class LLMProvider(ABC):
         # Strip markdown code fences if present.
         if text.startswith("```"):
             text = text.strip("`")
-            if text.startswith("json"):
-                text = text[4:]
+            text = text.removeprefix("json")
             text = text.strip()
         try:
             return json.loads(text)
@@ -211,24 +211,25 @@ class MockLLMProvider(LLMProvider):
         return "I could not find sufficient authoritative information to answer this question."
 
 
+_PROVIDER_REGISTRY = {
+    "gemini": GeminiProvider,
+    "groq": GroqProvider,
+    "ollama": OllamaProvider,
+    "mock": MockLLMProvider,
+}
+
+
 class LLMProviderFactory:
     """Builds providers and a fallback chain configured by ``LLM_PROVIDER``."""
-
-    _registry = {
-        "gemini": GeminiProvider,
-        "groq": GroqProvider,
-        "ollama": OllamaProvider,
-        "mock": MockLLMProvider,
-    }
 
     @classmethod
     def create(cls, name: str | None = None) -> LLMProvider:
         name = name or settings.DEFAULT_LLM_PROVIDER
         name = name.lower()
-        provider_cls = cls._registry.get(name, MockLLMProvider)
+        provider_cls = _PROVIDER_REGISTRY.get(name, MockLLMProvider)
         try:
             provider = provider_cls()
-        except Exception as exc:  # pragma: no cover - config dependent
+        except Exception as exc:  # noqa: BLE001 - provider build can fail on external SDK state
             logger.warning("Failed to build %s provider: %s", name, exc)
             provider = MockLLMProvider()
         return provider
@@ -242,7 +243,8 @@ class LLMProviderFactory:
             if alt != primary.name.lower():
                 try:
                     chain.append(cls.create(alt))
-                except Exception:
+                except Exception as exc:  # noqa: BLE001 - fallback chain is best-effort
+                    logger.debug("Alternative provider %s unavailable: %s", alt, exc)
                     continue
         chain.append(MockLLMProvider())
         # De-duplicate while preserving order.
@@ -270,6 +272,6 @@ async def generate_with_fallback(
             if not provider.is_available() and provider.name != "mock":
                 continue
             return await provider.generate(system_prompt, user_prompt, temperature, max_tokens)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - external LLM calls raise unpredictably
             logger.warning("LLM provider %s failed, trying next: %s", provider.name, exc)
     return "I could not generate a response. Please try again later."

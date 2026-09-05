@@ -1,9 +1,8 @@
-import os
 import secrets
 from functools import lru_cache
-from typing import List
+
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -20,12 +19,12 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 24
     AUTO_GENERATED_SECRET: bool = False
 
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:8000",
         "http://127.0.0.1:3000",
     ]
-    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1"]
+    ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1"]
 
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
@@ -51,18 +50,29 @@ class Settings(BaseSettings):
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret(cls, v: str, info) -> str:
+        cls._jwt_was_empty = not v
         if not v:
-            # noqa: RUF001 - visible warning at startup; tokens are ephemeral per-process.
-            cls.AUTO_GENERATED_SECRET = True
+            environment = (info.data.get("ENVIRONMENT") or "development").lower()
+            if environment == "production":
+                raise ValueError(
+                    "JWT_SECRET_KEY is required in production. Generate one with "
+                    "`python -c \"import secrets; print(secrets.token_hex(32))\"` "
+                    "and set it in your environment."
+                )
             v = secrets.token_hex(32)
         return v
+
+    @model_validator(mode="after")
+    def _mark_auto_generated_secret(self) -> "Settings":
+        self.AUTO_GENERATED_SECRET = bool(getattr(type(self), "_jwt_was_empty", False))
+        return self
 
     class Config:
         env_file = ".env"
         case_sensitive = True
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
 

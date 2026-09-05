@@ -10,10 +10,10 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.core.config import settings
-from app.core.database import engine, Base, AsyncSessionLocal
-from app.core.ratelimit import RateLimitMiddleware
 from app.api.routes import router as api_router
+from app.core.config import settings
+from app.core.database import AsyncSessionLocal, Base, engine
+from app.core.ratelimit import RateLimitMiddleware
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -127,6 +127,7 @@ if settings.RATE_LIMIT_ENABLED:
     app.add_middleware(RateLimitMiddleware)
 
 from app.audit.middleware import audit_logging_middleware
+
 app.middleware("http")(audit_logging_middleware)
 
 app.include_router(api_router, prefix="/api")

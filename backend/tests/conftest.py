@@ -8,7 +8,6 @@ application's settings/engine are created against SQLite.
 
 import asyncio
 import os
-import sys
 import tempfile
 import warnings
 
@@ -35,8 +34,8 @@ warnings.filterwarnings(
 # ---------------------------------------------------------------------------
 # 2. Allow PostgreSQL-only column types to render on SQLite.
 # ---------------------------------------------------------------------------
-from sqlalchemy.dialects import postgresql  # noqa: E402
-from sqlalchemy.ext.compiler import compiles  # noqa: E402
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.compiler import compiles
 
 
 @compiles(postgresql.UUID, "sqlite")
@@ -55,17 +54,15 @@ def _compile_jsonb_sqlite(type_, compiler, **kw):
 #    the different event loops used by pytest-asyncio and TestClient.
 # ---------------------------------------------------------------------------
 def _bootstrap_test_db() -> None:
-    import app.core.database as database
-    import app.main as main
-    import app.models  # noqa: F401 - registers tables on Base.metadata
-
-    from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.pool import NullPool
 
-    test_engine = create_async_engine(
+    import app.models  # noqa: F401 - registers tables on Base.metadata
+    from app import main
+    from app.core import database
+
+    test_engine = database.build_engine(
         f"sqlite+aiosqlite:///{_TEST_DB_PATH.replace(os.sep, '/')}",
         poolclass=NullPool,
-        future=True,
     )
 
     database.engine = test_engine
@@ -90,7 +87,7 @@ _bootstrap_test_db()
 # ---------------------------------------------------------------------------
 # 4. Fixtures.
 # ---------------------------------------------------------------------------
-import pytest  # noqa: E402
+import pytest
 
 
 @pytest.fixture(autouse=True)

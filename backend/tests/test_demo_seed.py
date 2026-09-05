@@ -10,10 +10,15 @@ sys.path.insert(
 
 import pytest
 
-from app.models import (
-    ApprovalRule, User, Project, Approval, Document, UserRole,
-)
 from app.core.database import AsyncSessionLocal
+from app.models import (
+    Approval,
+    ApprovalRule,
+    Document,
+    Project,
+    User,
+    UserRole,
+)
 
 
 @pytest.fixture
@@ -66,8 +71,9 @@ async def test_seed_demo_creates_user_project_approvals_docs(seed_rules):
     assert report["project_id"]
 
     async with AsyncSessionLocal() as db:
-        from sqlalchemy import select
         from uuid import UUID as _UUID
+
+        from sqlalchemy import select
         user = (await db.execute(select(User).where(User.email == "demo@abctextiles.in"))).scalar_one()
         assert user.role == UserRole.ENTREPRENEUR
 
@@ -92,8 +98,9 @@ async def test_seed_demo_is_idempotent(seed_rules):
     assert second["project_id"] == first["project_id"]
 
     async with AsyncSessionLocal() as db:
-        from sqlalchemy import select
         from uuid import UUID as _UUID
+
+        from sqlalchemy import select
         users = (await db.execute(select(User).where(User.email == "demo@abctextiles.in"))).scalars().all()
         assert len(users) == 1
 

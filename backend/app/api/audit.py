@@ -1,11 +1,11 @@
 """Audit trail view endpoint."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
 from app.api.deps import require_officer
+from app.core.database import get_db_session
 from app.models import AuditLog
 
 router = APIRouter(prefix="/audit", tags=["audit"])

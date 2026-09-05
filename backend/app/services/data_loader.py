@@ -1,12 +1,23 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
+import json
+import os
+
 from sqlalchemy import select
-from uuid import UUID
-from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ApprovalRule, GovernmentService, KnowledgeDocument, Scheme
 from app.rag.pipeline import RAGPipeline
-import json
-import os
+
+
+def _read_json(filepath: str):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+
+def _read_text(filepath: str) -> str:
+    with open(filepath, 'r', encoding='utf-8') as f:
+        return f.read()
+
 
 class RuleLoadingService:
     """Service for loading rules and schemes data"""
@@ -16,8 +27,7 @@ class RuleLoadingService:
     
     async def load_approval_rules(self, filepath: str):
         """Load approval rules from JSON file"""
-        with open(filepath, 'r') as f:
-            rules_data = json.load(f)
+        rules_data = await asyncio.to_thread(_read_json, filepath)
         
         for rule_data in rules_data:
             # Check if rule exists
@@ -51,8 +61,7 @@ class RuleLoadingService:
     
     async def load_schemes(self, filepath: str):
         """Load schemes from JSON file"""
-        with open(filepath, 'r') as f:
-            schemes_data = json.load(f)
+        schemes_data = await asyncio.to_thread(_read_json, filepath)
         
         for scheme_data in schemes_data:
             # Check if scheme exists
@@ -89,9 +98,7 @@ class RuleLoadingService:
         Idempotent by ``slug``. A service referencing a rule by name resolves to
         that rule's id at load time (rules load first, so they exist already).
         """
-        with open(filepath, 'r') as f:
-            services_data = json.load(f)
-
+        services_data = await asyncio.to_thread(_read_json, filepath)
         for svc_data in services_data:
             result = await self.db.execute(
                 select(GovernmentService).where(
@@ -165,8 +172,7 @@ class RuleLoadingService:
                 continue
             
             filepath = os.path.join(directory, filename)
-            with open(filepath, 'r', encoding='utf-8') as f:
-                text = f.read().strip()
+            text = (await asyncio.to_thread(_read_text, filepath)).strip()
             if not text:
                 continue
             

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.security import get_current_user
-from app.workers.background import get_task_manager, JobStatus
+from app.workers.background import get_task_manager
 
 router = APIRouter(prefix="/jobs", tags=["background-jobs"])
 

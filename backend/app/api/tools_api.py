@@ -11,16 +11,17 @@ all tools are read-only against the authenticated user's own data.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.ai.tools import ToolCallingError, ToolCallingService
 from app.core.database import get_db_session
 from app.core.security import get_current_user
 from app.models import Project
 from app.services.copilot_tools import get_copilot_tools
-from app.ai.tools import ToolCallingService, ToolCallingError
 
 router = APIRouter(prefix="/tools", tags=["tools"])
 

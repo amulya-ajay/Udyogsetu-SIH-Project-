@@ -13,7 +13,7 @@ officers/admins a review surface for the Explore flow (and the E2E lifecycle):
 
 from __future__ import annotations
 
-from typing import Optional
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,7 +22,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_officer
 from app.core.database import get_db_session
-from app.models import Approval, ApprovalStatus, Document, GovernmentApplication, Project, User
+from app.models import (
+    Approval,
+    ApprovalStatus,
+    Document,
+    GovernmentApplication,
+    Project,
+    User,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/officer/applications", tags=["officer-applications"])
 
@@ -81,9 +90,9 @@ async def _context(db: AsyncSession, approval: Approval) -> tuple[Project | None
 
 @router.get("")
 async def list_applications(
-    status: Optional[str] = None,
-    department: Optional[str] = None,
-    q: Optional[str] = None,
+    status: str | None = None,
+    department: str | None = None,
+    q: str | None = None,
     user: dict = Depends(require_officer),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -161,7 +170,7 @@ async def transition_application(
     if not target:
         raise HTTPException(status_code=400, detail="Missing 'to_status'")
 
-    from app.services.approval_workflow import ApprovalWorkflowEngine, TransitionError
+    from app.services.approval_workflow import ApprovalWorkflowEngine
 
     try:
         requested = ApprovalStatus[target.upper()]
@@ -186,7 +195,8 @@ async def transition_application(
             resource_id=str(approval.id),
             details={"from": decision.current_status.value, "to": requested.value},
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - audit side-channel must not break the transition
+        logger.warning("Audit log failed for officer transition: %s", exc)
         await db.rollback()
 
     project, owner = await _context(db, approval)
@@ -203,8 +213,9 @@ async def transition_application(
                 project_id=approval.project_id,
                 reference_id=str(approval.id),
             )
-        except Exception:
-            db.rollback()
+        except Exception as exc:  # noqa: BLE001 - notification side-channel must not break the transition
+            logger.warning("Owner notification failed for officer transition: %s", exc)
+            await db.rollback()
 
     return {**_officer_payload(approval, project, owner), "transition": decision.to_dict()}
 
@@ -221,10 +232,10 @@ async def sync_application(
     applications with no linked gateway), the first sync registers the
     application with the gateway system so later syncs can reconcile status."""
     approval = await _resolve_any_approval(db, application_id)
-    from app.services.gov_sync_service import GovSyncService
-    from app.services.gateway_service import GatewayService
-    from app.services.explore_service import ExploreService
     from app.integrations.government_adapters import system_for_department
+    from app.services.explore_service import ExploreService
+    from app.services.gateway_service import GatewayService
+    from app.services.gov_sync_service import GovSyncService
 
     result = await db.execute(
         select(GovernmentApplication).where(GovernmentApplication.approval_id == approval.id)

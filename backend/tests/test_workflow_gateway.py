@@ -2,9 +2,9 @@
 
 import pytest
 
-from app.workflows.copilot_workflow import CopilotWorkflow
-from app.services.gateway_service import GatewayService
 from app.integrations.mock_gov_api import MockGovAPI
+from app.services.gateway_service import GatewayService
+from app.workflows.copilot_workflow import CopilotWorkflow
 
 
 def test_intent_detection_routes_regulation():

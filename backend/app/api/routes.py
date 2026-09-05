@@ -1,10 +1,26 @@
 from fastapi import APIRouter
 
 from app.api import (
-    auth, projects, documents, chat, compliance, schemes, applications,
-    regulatory, business_intelligence, gateway, audit, workers_api, notifications,
-    officer, tools_api, synchronization, observability, knowledge_graph,
-    explore, officer_applications
+    applications,
+    audit,
+    auth,
+    business_intelligence,
+    chat,
+    compliance,
+    documents,
+    explore,
+    gateway,
+    knowledge_graph,
+    notifications,
+    observability,
+    officer,
+    officer_applications,
+    projects,
+    regulatory,
+    schemes,
+    synchronization,
+    tools_api,
+    workers_api,
 )
 
 router = APIRouter()

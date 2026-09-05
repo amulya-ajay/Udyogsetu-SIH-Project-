@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-from fastapi import Request, HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Annotated
+
 import bcrypt
 import jwt
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 
@@ -25,7 +26,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
     expire = now + (expires_delta or timedelta(hours=settings.JWT_EXPIRATION_HOURS))
@@ -42,11 +43,14 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> dict:
+Credentials = Annotated[HTTPAuthorizationCredentials, Depends(security_scheme)]
+
+
+async def get_current_user(credentials: Credentials) -> dict:
     return decode_token(credentials.credentials)
 
 
-async def verify_jwt(request: Request) -> Optional[dict]:
+async def verify_jwt(request: Request) -> dict | None:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return None

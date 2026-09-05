@@ -2,8 +2,6 @@
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
 from app.models import ApprovalStatus
 from app.services.approval_workflow import ApprovalWorkflowEngine
 from app.services.sla_engine import SlaEngine

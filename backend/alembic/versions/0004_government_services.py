@@ -5,9 +5,10 @@ on startup would produce it): native PostgreSQL enum for ``status`` and
 UUID/JSONB-equivalent column types.
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "0004"
 down_revision = "0003"
