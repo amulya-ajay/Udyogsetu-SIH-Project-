@@ -13,9 +13,9 @@ export default function ProjectApprovalsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Approvals</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Approvals</h1>
           <p className="mt-1 text-gray-600">Track your approval applications and dependencies</p>
         </div>
         <div className="flex gap-2">
@@ -23,6 +23,7 @@ export default function ProjectApprovalsPage() {
             variant={view === 'table' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setView('table')}
+            className="flex-1 sm:flex-none"
           >
             Table View
           </Button>
@@ -30,6 +31,7 @@ export default function ProjectApprovalsPage() {
             variant={view === 'graph' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setView('graph')}
+            className="flex-1 sm:flex-none"
           >
             Dependency Map
           </Button>

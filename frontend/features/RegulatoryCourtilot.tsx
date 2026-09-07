@@ -78,9 +78,9 @@ export function RegulatoryCourtilot({ projectId }: RegulatoryCourtilotProps) {
   ]
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 h-[620px]">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 lg:h-[620px]">
       {/* Chat Panel */}
-      <div className="flex flex-col border border-gray-200 rounded-lg overflow-hidden bg-white">
+      <div className="flex flex-col border border-gray-200 rounded-lg overflow-hidden bg-white h-[65vh] max-h-[620px] lg:h-auto">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.length === 0 ? (
@@ -174,7 +174,7 @@ export function RegulatoryCourtilot({ projectId }: RegulatoryCourtilotProps) {
       </div>
 
       {/* Sources Panel */}
-      <div className="w-80 border border-gray-200 rounded-lg overflow-hidden bg-white hidden md:flex flex-col">
+      <div className="flex flex-col border border-gray-200 rounded-lg overflow-hidden bg-white max-h-80 lg:max-h-none">
         <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
           <h3 className="font-semibold text-gray-900">Regulatory Sources</h3>
         </div>

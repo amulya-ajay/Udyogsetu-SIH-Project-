@@ -114,24 +114,24 @@ export function OfficerDashboard({ user }: OfficerDashboardProps) {
   }
 
   return (
-    <div className="space-y-8 p-8 bg-gray-50 min-h-screen">
+    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold text-gray-900">Officer Dashboard</h1>
-        <div className="text-right">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Officer Dashboard</h1>
+        <div className="text-left sm:text-right">
           <p className="text-gray-600">{user?.name || 'Officer'}</p>
           <p className="text-sm text-gray-500">{user?.department || 'Department'}</p>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {metrics.map((metric, idx) => (
-          <div key={idx} className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-start">
-              <div>
+          <div key={idx} className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="flex justify-between items-start gap-2 flex-wrap">
+              <div className="min-w-0">
                 <p className="text-gray-600 text-sm">{metric.label}</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{metric.value}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-2">{metric.value}</p>
               </div>
               <div className={metric.status === 'up' ? 'text-red-600' : metric.status === 'info' ? 'text-blue-600' : 'text-green-600'}>
                 {metric.status === 'up' ? '↑' : metric.status === 'info' ? '•' : '↓'} {metric.change}
@@ -141,16 +141,16 @@ export function OfficerDashboard({ user }: OfficerDashboardProps) {
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pending Applications */}
-        <div className="col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">Pending Applications</h2>
+            <div className="p-4 sm:p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Pending Applications</h2>
               <select
                 value={selectedFilter}
                 onChange={(e) => setSelectedFilter(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm w-full sm:w-auto"
               >
                 <option value="all">All Departments</option>
                 <option value="maitri">MAITRI</option>
@@ -219,11 +219,11 @@ export function OfficerDashboard({ user }: OfficerDashboardProps) {
 
           {/* Department Stats */}
           <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Department Performance</h2>
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Department Performance</h2>
             </div>
 
-            <div className="h-64 p-6">
+            <div className="h-64 p-4 sm:p-6">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={departmentStats} margin={{ top: 5, right: 20, bottom: 5, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />

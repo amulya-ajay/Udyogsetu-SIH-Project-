@@ -77,7 +77,7 @@ export default function ProjectCompliancePage() {
           ) : (
             <div className="divide-y divide-gray-200">
               {items.map((item: any) => (
-                <div key={item.id} className="py-4 flex items-center justify-between">
+                <div key={item.id} className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-medium text-gray-900">{item.requirement}</p>
                     <p className="text-sm text-gray-600">
@@ -85,7 +85,7 @@ export default function ProjectCompliancePage() {
                     </p>
                   </div>
                   <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    className={`px-3 py-1 rounded-full text-sm font-medium w-fit ${
                       item.status === 'ON_TRACK'
                         ? 'bg-green-100 text-green-800'
                         : item.status === 'AT_RISK'

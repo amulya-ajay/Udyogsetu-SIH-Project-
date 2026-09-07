@@ -153,7 +153,7 @@ export default function ApplicationDetailPage() {
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 col-span-2">
           <h3 className="font-semibold text-gray-900 mb-3">Details</h3>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div className="text-gray-500">Application ID</div>
             <div className="font-medium text-gray-900">{application.application_id}</div>
             <div className="text-gray-500">Project</div>

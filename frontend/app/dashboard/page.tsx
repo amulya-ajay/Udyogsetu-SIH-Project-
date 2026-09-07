@@ -29,12 +29,12 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-1 text-gray-600">Manage your industrial projects and approvals</p>
         </div>
-        <Button onClick={() => router.push('/dashboard/new-project')}>
+        <Button onClick={() => router.push('/dashboard/new-project')} className="w-full sm:w-auto">
           <Building2 className="w-4 h-4 mr-2" />
           Start New Project
         </Button>

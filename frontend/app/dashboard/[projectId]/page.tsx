@@ -49,7 +49,7 @@ export default function ProjectOverviewPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-        <div className="mt-2 flex items-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           <Badge variant="default">{project.industry || 'Industry'}</Badge>
           <Badge variant="outline">{project.sector || 'Sector'}</Badge>
         </div>

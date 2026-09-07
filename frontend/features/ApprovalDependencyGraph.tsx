@@ -130,32 +130,32 @@ export function ApprovalDependencyGraph({ projectId }: DependencyGraphProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-2xl font-semibold text-gray-900">Approval Dependency Map</h3>
-        <div className="flex gap-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h3 className="text-xl sm:text-2xl font-semibold text-gray-900">Approval Dependency Map</h3>
+        <div className="flex flex-wrap gap-4 sm:gap-8">
           <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600">{data?.nodes?.length ?? 0}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-blue-600">{data?.nodes?.length ?? 0}</div>
             <div className="text-sm text-gray-600">Approvals</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-yellow-600">{critical.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-yellow-600">{critical.length}</div>
             <div className="text-sm text-gray-600">On Critical Path</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-gray-900">{durationDays} days</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900">{durationDays} days</div>
             <div className="text-sm text-gray-600">Est. Total Time</div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden" style={{ height: '600px' }}>
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden h-[420px] sm:h-[600px]">
         <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}>
           <Background />
           <Controls />
         </ReactFlow>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-yellow-400 rounded"></div>

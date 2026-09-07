@@ -175,7 +175,7 @@ export function ExploreApply({ service }: ExploreApplyProps) {
 
         <div>
           <label className="text-sm font-medium text-gray-700">Choose a project</label>
-          <div className="flex gap-2 items-start">
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-start">
             <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               <option value="">Select project...</option>
               {projectList.map((p: any) => (
@@ -184,7 +184,7 @@ export function ExploreApply({ service }: ExploreApplyProps) {
                 </option>
               ))}
             </Select>
-            <Button variant="outline" onClick={runCheck} disabled={!projectId || check.isPending}>
+            <Button variant="outline" onClick={runCheck} disabled={!projectId || check.isPending} className="shrink-0">
               {check.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Check Applicability'}
             </Button>
           </div>
@@ -247,12 +247,12 @@ export function ExploreApply({ service }: ExploreApplyProps) {
 
         {checklist && (
           <div className="space-y-4 border-t border-gray-200 pt-5">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="min-w-0">
                 <p className="font-medium text-gray-900">Application: {checklist.name}</p>
                 <p className="text-sm text-gray-500">{checklist.department}</p>
               </div>
-              <Badge variant={statusVariant(status)}>{status.replace('_', ' ')}</Badge>
+              <Badge variant={statusVariant(status)} className="w-fit">{status.replace('_', ' ')}</Badge>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

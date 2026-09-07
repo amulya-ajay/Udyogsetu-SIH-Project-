@@ -109,17 +109,18 @@ export default function OnboardingWizard() {
 
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="p-6 border-b">
-          <div className="flex justify-between mb-4">
+          <div className="flex justify-between gap-1 sm:gap-4 mb-4">
             {steps.map((label, idx) => (
-              <div key={idx} className="text-center">
+              <div key={idx} className="text-center flex-1 min-w-0">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto transition ${
+                  aria-label={`Step ${idx + 1}: ${label}`}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center mx-auto text-sm sm:text-base transition ${
                     idx <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
                   }`}
                 >
                   {idx + 1}
                 </div>
-                <div className={`text-xs mt-1.5 ${idx <= currentStep ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                <div className={`hidden sm:block text-xs mt-1.5 truncate ${idx <= currentStep ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
                   {label}
                 </div>
               </div>
@@ -506,18 +507,18 @@ export default function OnboardingWizard() {
             </div>
           )}
 
-          <div className="flex justify-between mt-8 pt-6 border-t">
-            <Button variant="outline" onClick={handlePrev} disabled={currentStep === 0}>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 sm:items-center mt-8 pt-6 border-t">
+            <Button variant="outline" onClick={handlePrev} disabled={currentStep === 0} className="w-full sm:w-auto">
               Previous
             </Button>
-            <div className="space-x-3">
+            <div className="flex w-full sm:w-auto gap-3">
               {currentStep < 4 && (
-                <Button onClick={handleNext} disabled={loading}>
+                <Button onClick={handleNext} disabled={loading} className="flex-1 sm:flex-none">
                   Next
                 </Button>
               )}
               {currentStep === 4 && (
-                <Button onClick={handleSubmit} disabled={loading}>
+                <Button onClick={handleSubmit} disabled={loading} className="flex-1 sm:flex-none">
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
