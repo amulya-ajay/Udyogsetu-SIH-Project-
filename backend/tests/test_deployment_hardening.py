@@ -77,3 +77,73 @@ def test_normalize_database_url_preserves_explicit_drivers_and_others():
         normalize_database_url("sqlite+aiosqlite:///tmp/test.db")
         == "sqlite+aiosqlite:///tmp/test.db"
     )
+
+
+def test_normalize_database_url_translates_sslmode_to_asyncpg_ssl():
+    """``sslmode=require`` (Neon) must become asyncpg's ``ssl=require``.
+
+    asyncpg raises ``TypeError: connect() got an unexpected keyword argument
+    'sslmode'`` when the libpq-style parameter is forwarded, so it is renamed
+    to the asyncpg-native ``ssl`` key (same value vocabulary).
+    """
+    assert (
+        normalize_database_url(
+            "postgresql://user:pw@db.example.com:5432/db?sslmode=require"
+        )
+        == "postgresql+asyncpg://user:pw@db.example.com:5432/db?ssl=require"
+    )
+    assert (
+        normalize_database_url(
+            "postgres://user:pw@db.example.com:5432/db?sslmode=require"
+        )
+        == "postgresql+asyncpg://user:pw@db.example.com:5432/db?ssl=require"
+    )
+
+
+def test_normalize_database_url_sslmode_values_preserved():
+    """Each libpq ``sslmode`` value is kept under the ``ssl`` key."""
+    for mode in ("disable", "allow", "prefer", "verify-ca", "verify-full"):
+        assert (
+            normalize_database_url(f"postgresql://u:p@h/db?sslmode={mode}")
+            == f"postgresql+asyncpg://u:p@h/db?ssl={mode}"
+        )
+
+
+def test_normalize_database_url_preserves_other_query_params():
+    """Non-SSL query parameters survive normalization unchanged."""
+    normalized = normalize_database_url(
+        "postgresql://u:p@h/db?sslmode=require&connect_timeout=10&application_name=udyogsetu"
+    )
+    assert "sslmode" not in normalized
+    assert "ssl=require" in normalized
+    assert "connect_timeout=10" in normalized
+    assert "application_name=udyogsetu" in normalized
+
+
+def test_normalize_database_url_explicit_ssl_wins_and_local_untouched():
+    """An explicit ``ssl`` parameter wins; local URLs gain only the driver."""
+    assert (
+        normalize_database_url(
+            "postgresql://u:p@h/db?sslmode=require&ssl=prefer"
+        )
+        == "postgresql+asyncpg://u:p@h/db?ssl=prefer"
+    )
+    assert (
+        normalize_database_url("postgresql://udyogsetu:password@localhost:5432/udyogsetu")
+        == "postgresql+asyncpg://udyogsetu:password@localhost:5432/udyogsetu"
+    )
+
+
+def test_asyncpg_engine_receives_ssl_not_sslmode():
+    """The kwargs forwarded to asyncpg.connect() must use ``ssl`` (no sslmode)."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    url = normalize_database_url(
+        "postgresql+asyncpg://u:p@host:5432/db?sslmode=require&application_name=x"
+    )
+    _, kwargs = create_async_engine(url).dialect.create_connect_args(
+        create_async_engine(url).url
+    )
+    assert "sslmode" not in kwargs
+    assert kwargs["ssl"] == "require"
+    assert kwargs["application_name"] == "x"
