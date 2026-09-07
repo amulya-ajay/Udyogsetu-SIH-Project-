@@ -1,3 +1,16 @@
+# UDYOGSETU - free deploy kits (no credit card required)
+
+Two fully-free ways to host the backend. Both keep the frontend on Vercel.
+
+- **No VM, no card, fastest**: Host the backend on a **Hugging Face Space**
+  (free CPU Docker) + **Neon** PostgreSQL + **Upstash** Redis. See
+  [`HUGGINGFACE_SPACES.md`](HUGGINGFACE_SPACES.md) and push with
+  `./push-to-hf.sh <user>/<space>`.
+- **Your own VM**: Merge everything into one free VM (e.g. Oracle Always Free)
+  with persistent volumes and nightly backups. Rest of this README.
+
+---
+
 # UDYOGSETU - free single-VM deploy kit
 
 Deploy the whole backend (FastAPI + PostgreSQL + Redis) on a free Ubuntu VM
