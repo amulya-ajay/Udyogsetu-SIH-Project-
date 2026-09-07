@@ -109,15 +109,15 @@ def test_normalize_database_url_sslmode_values_preserved():
         )
 
 
-def test_normalize_database_url_preserves_other_query_params():
-    """Non-SSL query parameters survive normalization unchanged."""
+def test_normalize_database_url_preserves_asyncpg_supported_params():
+    """Valid asyncpg.connect() query parameters survive normalization."""
     normalized = normalize_database_url(
-        "postgresql://u:p@h/db?sslmode=require&connect_timeout=10&application_name=udyogsetu"
+        "postgresql://u:p@h/db?sslmode=require&timeout=10&target_session_attrs=read-write"
     )
     assert "sslmode" not in normalized
     assert "ssl=require" in normalized
-    assert "connect_timeout=10" in normalized
-    assert "application_name=udyogsetu" in normalized
+    assert "timeout=10" in normalized
+    assert "target_session_attrs=read-write" in normalized
 
 
 def test_normalize_database_url_explicit_ssl_wins_and_local_untouched():
@@ -134,16 +134,81 @@ def test_normalize_database_url_explicit_ssl_wins_and_local_untouched():
     )
 
 
-def test_asyncpg_engine_receives_ssl_not_sslmode():
-    """The kwargs forwarded to asyncpg.connect() must use ``ssl`` (no sslmode)."""
+def test_normalize_neon_url_sslmode_and_channel_binding():
+    """A provider-generated Neon URL with both params is fully normalized."""
+    url = (
+        "postgresql://username:s3cr3t@ep-cute-mouse-123456.us-east-2.aws.neon.tech/neondb"
+        "?sslmode=require&channel_binding=require"
+    )
+    assert normalize_database_url(url) == (
+        "postgresql+asyncpg://username:s3cr3t@ep-cute-mouse-123456.us-east-2.aws.neon.tech/neondb"
+        "?ssl=require"
+    )
+
+
+def test_normalize_channel_binding_variants_are_dropped():
+    """channel_binding cannot be honored by asyncpg and is always removed."""
+    for mode in ("require", "prefer", "disable"):
+        assert (
+            normalize_database_url(f"postgresql://u:p@h/db?channel_binding={mode}")
+            == "postgresql+asyncpg://u:p@h/db"
+        )
+
+
+def test_normalize_drops_other_asyncpg_unsupported_params():
+    """libpq-only params (application_name, connect_timeout) also break asyncpg and are dropped."""
+    assert (
+        normalize_database_url(
+            "postgresql://u:p@h/db?channel_binding=require&application_name=app&connect_timeout=9"
+        )
+        == "postgresql+asyncpg://u:p@h/db"
+    )
+
+
+def test_normalize_preserves_credentials_verbatim():
+    """Username and percent-encoded password survive exactly."""
+    assert normalize_database_url(
+        "postgresql://user:pa%40ss@ep-x.region.aws.neon.tech/db?sslmode=require&channel_binding=require"
+    ) == (
+        "postgresql+asyncpg://user:pa%40ss@ep-x.region.aws.neon.tech/db?ssl=require"
+    )
+
+
+def test_asyncpg_engine_receives_only_supported_keywords():
+    """The kwargs SQLAlchemy forwards to asyncpg contain only supported keywords.
+
+    Mirrors the original crash (``unexpected keyword argument``): after
+    normalization the forwarded ``connect()`` kwargs must be a subset of the
+    installed asyncpg's accepted parameters.
+    """
+    from inspect import Parameter, signature
+
+    import asyncpg
     from sqlalchemy.ext.asyncio import create_async_engine
 
     url = normalize_database_url(
-        "postgresql+asyncpg://u:p@host:5432/db?sslmode=require&application_name=x"
+        "postgres://user:pw@ep-random-2.us-east-2.aws.neon.tech/neondb"
+        "?sslmode=require&channel_binding=require"
     )
-    _, kwargs = create_async_engine(url).dialect.create_connect_args(
-        create_async_engine(url).url
-    )
+    engine = create_async_engine(url)
+    _, kwargs = engine.dialect.create_connect_args(engine.url)
+    supported = {
+        p.name
+        for p in signature(asyncpg.connect).parameters.values()
+        if p.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
+    }
     assert "sslmode" not in kwargs
+    assert "channel_binding" not in kwargs
+    assert set(kwargs) <= supported
     assert kwargs["ssl"] == "require"
-    assert kwargs["application_name"] == "x"
+
+
+def test_alembic_uses_app_url_normalization():
+    """Alembic env.py drives migrations through the same normalize helper."""
+    from pathlib import Path
+
+    env_py = (Path(__file__).resolve().parent.parent / "alembic" / "env.py").read_text(
+        encoding="utf-8"
+    )
+    assert "normalize_database_url" in env_py
+    assert "normalize_database_url(settings.DATABASE_URL)" in env_py

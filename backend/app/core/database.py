@@ -1,4 +1,6 @@
 import logging
+from functools import lru_cache
+from inspect import Parameter, signature
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -8,30 +10,70 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# asyncpg's ``ssl`` parameter accepts the same values libpq uses for
-# ``sslmode`` (disable/allow/prefer/require/verify-ca/verify-full), but the
-# URL key must be ``ssl`` -- asyncpg raises
-# ``TypeError: connect() got an unexpected keyword argument 'sslmode'`` when
-# the libpq-style ``sslmode=require`` query parameter is forwarded to it.
 _SSLMODE_VALUES = {"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}
+
+# Fallback allow-list of asyncpg.connect() keywords, only used if asyncpg is
+# unexpectedly unavailable (it is a hard runtime dependency). The primary
+# source of truth is introspecting the installed asyncpg at runtime.
+_ASYNCPG_CONNECT_ARGS_FALLBACK = {
+    "dsn", "host", "port", "user", "password", "passfile", "service",
+    "servicefile", "database", "loop", "timeout", "statement_cache_size",
+    "max_cached_statement_lifetime", "max_cacheable_statement_size",
+    "command_timeout", "ssl", "direct_tls", "connection_class", "record_class",
+    "server_settings", "target_session_attrs", "krbsrvname", "gsslib",
+}
+
+
+@lru_cache(maxsize=1)
+def _asyncpg_connect_arg_names() -> frozenset:
+    """Keyword arguments accepted by the installed ``asyncpg.connect()``.
+
+    Kept dynamic so the normalization tracks the driver actually installed,
+    instead of a hardcoded assumption about its supported parameters.
+    """
+    try:
+        import asyncpg
+
+        return frozenset(
+            name
+            for name, param in signature(asyncpg.connect).parameters.items()
+            if param.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
+        )
+    except ImportError as exc:  # pragma: no cover - asyncpg is required; belt & braces
+        logger.warning("asyncpg unavailable (%s); using static param allow-list", exc)
+        return frozenset(_ASYNCPG_CONNECT_ARGS_FALLBACK)
 
 
 def normalize_database_url(url: str | None) -> str:
-    """Make a PostgreSQL ``DATABASE_URL`` usable by SQLAlchemy asyncpg.
+    """Make a provider-generated PostgreSQL ``DATABASE_URL`` usable by asyncpg.
 
-    Handles two common hosted-lite incompatibilities:
+    Hosted providers (Neon, Render, Railway, ...) hand out URLs flavoured for
+    libpq, whose query parameters are forwarded verbatim to
+    ``asyncpg.connect()`` by SQLAlchemy's async dialect. asyncpg rejects any
+    keyword it does not know, e.g.::
 
-    * Driver-less URLs: Railway/Neon inject ``postgresql://`` (no driver).
-      Without a driver SQLAlchemy's async engine falls back to the
-      synchronous psycopg2 dialect, which is not installed, crashing startup.
-      The scheme is rewritten to ``postgresql+asyncpg://``.
+        TypeError: connect() got an unexpected keyword argument 'sslmode'
+        TypeError: connect() got an unexpected keyword argument 'channel_binding'
 
-    * ``sslmode`` query parameters: Neon URLs ship ``?sslmode=require``.
-      asyncpg does not accept ``sslmode`` as a ``connect()`` keyword, so the
-      parameter is renamed to ``ssl`` (the asyncpg-native key that accepts the
-      same values). All other query parameters (``application_name``,
-      ``connect_timeout``, ``options``, ...) are preserved as-is, and an
-      explicit ``ssl`` parameter wins over ``sslmode``.
+    This normalizes once, up front:
+
+    * ``postgresql://``/``postgres://`` -> ``postgresql+asyncpg://``
+      (driver-less URLs would otherwise fall back to the uninstalled psycopg2
+      sync dialect).
+    * ``sslmode=<value>`` -> ``ssl=<value>`` -- asyncpg's ``ssl`` parameter
+      accepts the same vocabulary (disable/allow/prefer/require/verify-ca/
+      verify-full), so TLS requirements are preserved, never silently dropped.
+    * ``channel_binding`` is removed: asyncpg implements no channel-binding
+      negotiation, so no value can be honored. This does not weaken TLS --
+      connection encryption is governed by ``sslmode``/``ssl``, which is kept
+      and enforced. asyncpg simply performs (non-channel-bound) SCRAM-SHA-256,
+      which Neon supports.
+    * Any other query parameter whose name is not accepted by the installed
+      ``asyncpg.connect()`` is removed too, with a warning, so providers can
+      add more libpq-only options without breaking the connection. Valid
+      asyncpg parameters (``timeout``, ``target_session_attrs``, ``options``,
+      ...) are preserved along with credentials, host, port, database, password
+      and explicit ``ssl``.
 
     Non-PostgreSQL URLs (e.g. SQLite tests) are returned unchanged.
     """
@@ -41,15 +83,29 @@ def normalize_database_url(url: str | None) -> str:
     if parsed.scheme.lower() not in ("postgres", "postgresql", "postgresql+asyncpg"):
         return url
 
+    accepted = _asyncpg_connect_arg_names()
     pairs = parse_qsl(parsed.query, keep_blank_values=True)
     has_explicit_ssl = any(key.lower() == "ssl" for key, _ in pairs)
-    normalized = []
+
+    normalized: list[tuple[str, str]] = []
+    dropped: list[str] = []
     for key, value in pairs:
-        if key.lower() == "sslmode":
-            if not value or has_explicit_ssl or value.lower() not in _SSLMODE_VALUES:
-                continue
-            key = "ssl"
-        normalized.append((key, value))
+        lower = key.lower()
+        if lower == "sslmode":
+            if value and value.lower() in _SSLMODE_VALUES and not has_explicit_ssl:
+                normalized.append(("ssl", value))
+            else:
+                dropped.append(key)
+        elif lower in accepted:
+            normalized.append((key, value))
+        else:
+            dropped.append(key)
+
+    if dropped:
+        logger.warning(
+            "Dropped URL query parameter(s) asyncpg cannot honor: %s "
+            "(connection 'ssl' setting retained)", ", ".join(dropped),
+        )
 
     return urlunparse(
         parsed._replace(
